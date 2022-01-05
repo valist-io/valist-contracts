@@ -76,7 +76,7 @@ async function bootstrap() {
   for (let i = 0; i < teamNames1.length; i++) {
     console.log("Creating Team", teamNames1[i]);
     await valist.createTeam(teamNames1[i], projectMetaCid, [
-      await accounts[0].getAddress(teamNames1[i], projectName),
+      await accounts[0].getAddress(),
     ]);
 
     console.log("Creating Project", teamNames1[i], projectName);
