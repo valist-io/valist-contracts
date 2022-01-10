@@ -90,11 +90,11 @@ async function bootstrap() {
 
     console.log("Creating Project", teamNames1[i], projectName);
     await valist.createProject(teamNames1[i], projectName, projectMetaCid, [
-      account2,
+      account0,
     ]);
 
-    console.log("Add addr1 as projectMember", await accounts[1].getAddress());
-    await valist.addProjectMember(teamNames1[i], projectName, account2);
+    console.log("Add addr1 as projectMember", account1);
+    await valist.addProjectMember(teamNames1[i], projectName, account1);
 
     console.log("Publishing release to", `${teamNames1[i]}/${projectName}`);
     await valist.createRelease(
