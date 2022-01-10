@@ -73,21 +73,28 @@ async function bootstrap() {
   console.log("Release Meta CID", releaseMetaCid);
   console.log();
 
+  const account0 = await accounts[0].getAddress();
+  const account1 = await accounts[1].getAddress();
+  const account2 = await accounts[2].getAddress();
+  console.log("Account 0", account0);
+  console.log("Account 1", account1);
+  console.log("Account 2", account2);
+  console.log();
+
   for (let i = 0; i < teamNames1.length; i++) {
     console.log("Creating Team", teamNames1[i]);
-    await valist.createTeam(teamNames1[i], projectMetaCid, [
-      await accounts[0].getAddress(),
+    const createTeamTx = await valist.createTeam(teamNames1[i], teamMetaCid, [
+      account0,
     ]);
+    await createTeamTx.wait();
 
     console.log("Creating Project", teamNames1[i], projectName);
-    await valist.createProject(teamNames1[i], projectName, projectMetaCid, []);
+    await valist.createProject(teamNames1[i], projectName, projectMetaCid, [
+      account2,
+    ]);
 
     console.log("Add addr1 as projectMember", await accounts[1].getAddress());
-    await valist.voteKey(
-      teamNames1[i],
-      projectName,
-      await accounts[1].getAddress()
-    );
+    await valist.addProjectMember(teamNames1[i], projectName, account2);
 
     console.log("Publishing release to", `${teamNames1[i]}/${projectName}`);
     await valist.createRelease(
