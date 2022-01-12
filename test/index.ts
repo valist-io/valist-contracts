@@ -1,300 +1,961 @@
-/* eslint-disable no-unused-expressions */
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { Contract, Signer } from "ethers";
-import ValistContract from "../artifacts/contracts/Valist.sol/Valist.json";
 
-describe("Valist Contract", () => {
-  const orgName = "testOrg";
-  const repoName = "testRepo";
-  const releaseCID = "bafybeig5g7gpjxl5mmkufdkf4amj4ttmy4eni5ghgi4huw5w57s6e3cf6y";
-  const metaCID = "bafybeigmfwlweiecbubdw4lq6uqngsioqepntcfohvrccr2o5f7flgydme";
-  const iface = new ethers.utils.Interface(ValistContract.abi);
-  let valist: Contract;
-  let registry: Contract;
-  let accounts: Signer[];
-  let orgID: string;
+describe("createTeam", () => {
+  it("Should emit TeamCreated", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
 
-  const ADD_KEY = ethers.utils.keccak256(
-    ethers.utils.solidityPack(["string"], ["ADD_KEY_OPERATION"])
-  );
-
-  const REVOKE_KEY = ethers.utils.keccak256(
-    ethers.utils.solidityPack(["string"], ["REVOKE_KEY_OPERATION"])
-  );
-
-  const ROTATE_KEY = ethers.utils.keccak256(
-    ethers.utils.solidityPack(["string"], ["ROTATE_KEY_OPERATION"])
-  );
-
-  const ORG_ADMIN = ethers.utils.keccak256(
-    ethers.utils.solidityPack(["string"], ["ORG_ADMIN_ROLE"])
-  );
-
-  const REPO_DEV = ethers.utils.keccak256(
-    ethers.utils.solidityPack(["string"], ["REPO_DEV_ROLE"])
-  );
-
-  // const repoSelector = ethers.utils.keccak256(
-  //   ethers.utils.solidityPack(["bytes32", "string"], [orgID, repoName])
-  // );
-
-  before(async () => {
-    // Deploy Valist Contract
-    const Valist = await ethers.getContractFactory("Valist");
-    valist = await Valist.deploy("0x9399BB24DBB5C4b782C70c2969F58716Ebbd6a3b");
-    await valist.deployed();
-
-    const ValistRegistry = await ethers.getContractFactory("ValistRegistry");
-    registry = await ValistRegistry.deploy(
-      "0x9399BB24DBB5C4b782C70c2969F58716Ebbd6a3b"
-    );
-    // Setup Accounts and Constants
-    accounts = await ethers.getSigners();
+    await expect(valist.createTeam("acme", "Qm", members))
+      .to.emit(valist, 'TeamCreated');
   });
 
-  describe("Create an organization", async () => {
-    let orgTx;
-    let orgTxRec;
-    let parsedOrgCreated;
-    let parsedVoteKey: any;
+  it("Should fail with claimed name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
 
-    before(async () => {
-      orgTx = await valist.createOrganization(metaCID);
-      orgTxRec = await orgTx.wait();
-      parsedOrgCreated = iface.parseLog(orgTxRec.logs[0]);
-      parsedVoteKey = iface.parseLog(orgTxRec.logs[1]);
-      orgID = parsedOrgCreated.args[0];
-    });
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
 
-    it("Should call vote key event", async () => {
-      console.log(parsedVoteKey.args);
-      expect(parsedVoteKey.args).lengthOf(5);
-    });
-
-    it("Should create testOrg organization", async () => {
-      await registry.linkNameToID(orgID, orgName);
-    });
-
-    it("Should fetch orgID from orgName", async () => {
-      const _orgID = await registry.nameToID(orgName);
-      expect(_orgID).to.equal(orgID);
-    });
-
-    // it("Org ID should be generated using keccak256(++orgCount, chainID)", async () => {
-    //   const expectedOrgID = ethers.utils.keccak256(
-    //     ethers.utils.solidityPack(
-    //       ["uint", "uint"],
-    //       [await valist.orgCount(), 31337]
-    //     )
-    //   );
-    //   expect(orgID).to.equal(expectedOrgID);
-    // });
-
-    it("Creator should be an organization admin", async () => {
-      expect(await valist.isOrgAdmin(orgID, await accounts[0].getAddress())).to
-        .be.true;
-    });
+    await expect(valist.createTeam("acme", "Qm", members))
+      .to.be.revertedWith('err-name-claimed');
   });
 
-  describe("Create a repository", () => {
-    it("Should create a repo under testOrg", async () => {
-      await valist.createRepository(orgID, repoName, metaCID);
-    });
+  it("Should fail with empty members", async function() {
+    const valist = await deployValist();
 
-    it("Role list should be updated", async () => {
-      const roleSelector = ethers.utils.keccak256(
-        ethers.utils.solidityPack(["bytes32", "bytes32"], [orgID, ORG_ADMIN])
-      );
-      const orgAdmins = await valist.getRoleMembers(roleSelector);
-      expect(orgAdmins[0]).to.equal(await accounts[0].getAddress());
-    });
-
-    it("Add addr2 as repoDev under testRepo", async () => {
-      await valist.voteKey(
-        orgID,
-        repoName,
-        ADD_KEY,
-        await accounts[1].getAddress()
-      );
-
-      expect(
-        await valist.isRepoDev(orgID, repoName, await accounts[1].getAddress())
-      ).to.be.true;
-    });
-
-    it("Add addr3 as repoDev under testRepo", async () => {
-      await valist.voteKey(
-        orgID,
-        repoName,
-        ADD_KEY,
-        await accounts[2].getAddress()
-      );
-
-      expect(
-        await valist.isRepoDev(orgID, repoName, await accounts[2].getAddress())
-      ).to.be.true;
-    });
+    await expect(valist.createTeam("acme", "Qm", []))
+      .to.be.revertedWith('err-empty-members');
   });
 
-  describe("Publish a release", () => {
-    it("Should publish a release under testOrg/testRepo", async () => {
-      const releaseSelector = ethers.utils.keccak256(
-        ethers.utils.defaultAbiCoder.encode(
-          ["bytes32", "string", "string"],
-          [orgID, repoName, "0.0.1"]
-        )
-      );
-      await valist.voteRelease(orgID, repoName, "0.0.1", releaseCID, metaCID);
-      const release = await valist.releases(releaseSelector);
-      expect(release.releaseCID).to.equal(releaseCID);
-      expect(release.metaCID).to.equal(metaCID);
-    });
+  it("Should fail with empty name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
 
-    it("Should fetch release using releaseSelector", async () => {
-      const releaseSelector = ethers.utils.keccak256(
-        ethers.utils.defaultAbiCoder.encode(
-          ["bytes32", "string", "string"],
-          [orgID, repoName, "0.0.1"]
-        )
-      );
-      const release = await valist.releases(releaseSelector);
-      expect(release.releaseCID).to.equal(releaseCID);
-      expect(release.metaCID).to.equal(metaCID);
-    });
-
-    it("Should fetch release using getLatestRelease", async () => {
-      const release = await valist.getLatestRelease(orgID, repoName);
-      expect(release[0]).to.equal("0.0.1");
-      expect(release[1]).to.equal(releaseCID);
-      expect(release[2]).to.equal(metaCID);
-    });
-
-    it("Should fail to propose release that has been finalized", async () => {
-      try {
-        await valist.voteRelease(orgID, repoName, "0.0.1", releaseCID, metaCID);
-      } catch (e: any) {
-        expect(e.message).to.contain("Tag used");
-      }
-    });
+    await expect(valist.createTeam("", "Qm", members))
+      .to.be.revertedWith('err-empty-name');
   });
 
-  describe("Add, rotate, & remove repo keys", () => {
-    it("Add addr4 as repoDev under testRepo", async () => {
-      const voteKeyTx = await valist.voteKey(
-        orgID,
-        repoName,
-        ADD_KEY,
-        await accounts[3].getAddress()
-      );
-
-      const voteKeyTxRec = await voteKeyTx.wait();
-      const parsedVoteKey = iface.parseLog(voteKeyTxRec.logs[0]);
-      expect(parsedVoteKey.args[1]).to.equal("testRepo");
-    });
-
-    it("Validate that addr 4 is now repo dev", async () => {
-      expect(
-        await valist.isRepoDev(orgID, repoName, await accounts[3].getAddress())
-      ).to.be.true;
-    });
-
-    it("Should fail to vote when key is already added", async () => {
-      try {
-        await valist.voteKey(
-          orgID,
-          repoName,
-          ADD_KEY,
-          await accounts[3].getAddress()
-        );
-      } catch (e: any) {
-        expect(e.message).to.contain("Key exists");
-      }
-    });
-
-    it("Revoke addr 4", async () => {
-      await valist.voteKey(
-        orgID,
-        repoName,
-        REVOKE_KEY,
-        await accounts[3].getAddress()
-      );
-    });
-
-    it("Addr 4 should no longer have access", async () => {
-      expect(
-        await valist.isRepoDev(orgID, repoName, await accounts[3].getAddress())
-      ).to.be.false;
-    });
-
-    it("Role list should be updated", async () => {
-      let roleSelector = ethers.utils.keccak256(
-        ethers.utils.solidityPack(
-          ["bytes32", "string", "bytes32"],
-          [orgID, repoName, REPO_DEV]
-        )
-      );
-      const repoDevs = await valist.getRoleMembers(roleSelector);
-      roleSelector = ethers.utils.keccak256(
-        ethers.utils.solidityPack(["bytes32", "bytes32"], [orgID, ORG_ADMIN])
-      );
-      const orgAdmins = await valist.getRoleMembers(roleSelector);
-      expect(repoDevs[0]).to.equal(await accounts[1].getAddress());
-      expect(repoDevs[1]).to.equal(await accounts[2].getAddress());
-      expect(orgAdmins[0]).to.equal(await accounts[0].getAddress());
-    });
-
-    it("Should allow self-serve key rotation", async () => {
-      await valist.voteKey(
-        orgID,
-        "",
-        ROTATE_KEY,
-        await accounts[4].getAddress()
-      );
-    });
-
-    it("Should disallow rotating a key with a mismatched role", async () => {
-      try {
-        await valist
-          .connect(accounts[4])
-          .voteKey(orgID, repoName, ROTATE_KEY, await accounts[5].getAddress());
-      } catch (e: any) {
-        expect(e.message).to.contain("Denied");
-      }
-    });
-
-    it("Role list should be updated", async () => {
-      let roleSelector = ethers.utils.keccak256(
-        ethers.utils.solidityPack(
-          ["bytes32", "string", "bytes32"],
-          [orgID, repoName, REPO_DEV]
-        )
-      );
-      const repoDevs = await valist.getRoleMembers(roleSelector);
-      roleSelector = ethers.utils.keccak256(
-        ethers.utils.solidityPack(["bytes32", "bytes32"], [orgID, ORG_ADMIN])
-      );
-      const orgAdmins = await valist.getRoleMembers(roleSelector);
-      expect(repoDevs[0]).to.equal(await accounts[1].getAddress());
-      expect(repoDevs[1]).to.equal(await accounts[2].getAddress());
-      expect(orgAdmins[0]).to.equal(await accounts[4].getAddress());
-    });
-  });
-
-  describe("Read from Valist contract", () => {
-    it("Should get testOrg metadata", async () => {
-      const org = await valist.orgs(orgID);
-      expect(org).to.equal(metaCID);
-    });
-
-    it("Should get 10 orgNames", async () => {
-      const orgNames = await registry.getNames(1, 10);
-      expect(orgNames[0]).to.equal("testOrg");
-      expect(orgNames.length).to.equal(10);
-    });
-
-    it("Should get number of orgs", async () => {
-      expect(await valist.orgCount()).to.equal(1);
-    });
+  it("Should fail with empty meta", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+    
+    await expect(valist.createTeam("acme", "", members))
+      .to.be.revertedWith('err-empty-meta');
   });
 });
+
+describe("createProject", () => {
+  it("Should emit ProjectCreated", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    await expect(valist.createProject("acme", "bin", "Qm", members))
+      .to.emit(valist, 'ProjectCreated');
+  });
+
+  it("Should succeed with no members", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    await expect(valist.createProject("acme", "bin", "Qm", []))
+      .to.emit(valist, 'ProjectCreated');
+  });
+
+  it("Should fail with claimed name", async function(){
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", []);
+    await createProjectTx.wait();
+
+    await expect(valist.createProject("acme", "bin", "Qm", []))
+      .to.be.revertedWith('err-name-claimed');
+  });
+
+  it("Should fail with no team member", async function(){
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members.slice(1));
+    await createTeamTx.wait();
+
+    await expect(valist.createProject("acme", "bin", "Qm", []))
+      .to.be.revertedWith('err-team-member');
+  });
+
+  it("Should fail with empty team name", async function(){
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    await expect(valist.createProject("", "bin", "Qm", []))
+      .to.be.revertedWith('err-team-member');
+  });
+
+  it("Should fail with empty project name", async function(){
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    await expect(valist.createProject("acme", "", "Qm", []))
+      .to.be.revertedWith('err-empty-name');
+  });
+
+  it("Should fail with empty meta", async function(){
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    await expect(valist.createProject("acme", "bin", "", []))
+      .to.be.revertedWith('err-empty-meta');
+  });
+});
+
+describe("createRelease", () => {
+  it("Should emit ReleaseCreated", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    await expect(valist.createRelease("acme", "bin", "0.0.1", "Qm"))
+      .to.emit(valist, 'ReleaseCreated');
+  });
+
+  it("Should fail with no project member", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members.slice(1));
+    await createProjectTx.wait();
+
+    await expect(valist.createRelease("acme", "bin", "0.0.1", "Qm"))
+      .to.be.revertedWith('err-proj-member');
+  });
+
+  it("Should fail with claimed name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    const createReleaseTx = await valist.createRelease("acme", "bin", "0.0.1", "Qm");
+    await createReleaseTx.wait();
+
+    await expect(valist.createRelease("acme", "bin", "0.0.1", "Qm"))
+      .to.be.revertedWith('err-name-claimed');
+  });
+
+  it("Should fail with empty name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    await expect(valist.createRelease("acme", "bin", "", "Qm"))
+      .to.be.revertedWith('err-empty-name');
+  });
+
+  it("Should fail with empty team name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    await expect(valist.createRelease("", "bin", "0.0.1", "Qm"))
+      .to.be.revertedWith('err-proj-member');
+  });
+
+  it("Should fail with empty project name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    await expect(valist.createRelease("acme", "", "0.0.1", "Qm"))
+      .to.be.revertedWith('err-proj-member');
+  });
+
+  it("Should fail with empty meta", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    await expect(valist.createRelease("acme", "bin", "0.0.1", ""))
+      .to.be.revertedWith('err-empty-meta');
+  });
+});
+
+describe("approveRelease", () => {
+  it("Should emit ReleaseApproved", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    const createReleaseTx = await valist.createRelease("acme", "bin", "0.0.1", "Qm");
+    await createReleaseTx.wait();
+
+    await expect(valist.approveRelease("acme", "bin", "0.0.1"))
+      .to.emit(valist, 'ReleaseApproved');
+  });
+
+  it("Should fail with empty name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    const createReleaseTx = await valist.createRelease("acme", "bin", "0.0.1", "Qm");
+    await createReleaseTx.wait();
+
+    await expect(valist.approveRelease("acme", "bin", ""))
+      .to.be.revertedWith('err-release-not-exist');
+  });
+
+  it("Should fail with empty team name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    const createReleaseTx = await valist.createRelease("acme", "bin", "0.0.1", "Qm");
+    await createReleaseTx.wait();
+
+    await expect(valist.approveRelease("", "bin", "0.0.1"))
+      .to.be.revertedWith('err-release-not-exist');
+  });
+
+  it("Should fail with empty project name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    const createReleaseTx = await valist.createRelease("acme", "bin", "0.0.1", "Qm");
+    await createReleaseTx.wait();
+
+    await expect(valist.approveRelease("acme", "", "0.0.1"))
+      .to.be.revertedWith('err-release-not-exist');
+  });
+});
+
+describe("rejectRelease", () => {
+  it("Should emit ReleaseRejected", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    const createReleaseTx = await valist.createRelease("acme", "bin", "0.0.1", "Qm");
+    await createReleaseTx.wait();
+
+    await expect(valist.rejectRelease("acme", "bin", "0.0.1"))
+      .to.emit(valist, 'ReleaseRejected');
+  });
+
+  it("Should fail with empty name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    const createReleaseTx = await valist.createRelease("acme", "bin", "0.0.1", "Qm");
+    await createReleaseTx.wait();
+
+    await expect(valist.rejectRelease("acme", "bin", ""))
+      .to.be.revertedWith('err-release-not-exist');
+  });
+
+  it("Should fail with empty team name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    const createReleaseTx = await valist.createRelease("acme", "bin", "0.0.1", "Qm");
+    await createReleaseTx.wait();
+
+    await expect(valist.rejectRelease("", "bin", "0.0.1"))
+      .to.be.revertedWith('err-release-not-exist');
+  });
+
+  it("Should fail with empty project name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    const createReleaseTx = await valist.createRelease("acme", "bin", "0.0.1", "Qm");
+    await createReleaseTx.wait();
+
+    await expect(valist.rejectRelease("acme", "", "0.0.1"))
+      .to.be.revertedWith('err-release-not-exist');
+  });
+});
+
+describe("addTeamMember", () => {
+  it("Should emit TeamMemberAdded", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members.slice(0, 1));
+    await createTeamTx.wait();
+
+    await expect(valist.addTeamMember("acme", members[1]))
+      .to.emit(valist, "TeamMemberAdded");
+  });
+
+  it("Should fail with duplicate member", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    await expect(valist.addTeamMember("acme", members[1]))
+      .to.be.revertedWith('err-member-exist');
+  });
+
+  it("Should fail with no team member", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members.slice(1));
+    await createTeamTx.wait();
+
+    await expect(valist.addTeamMember("acme", members[0]))
+      .to.be.revertedWith('err-team-member');
+  });
+
+  it("Should fail with empty team name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    await expect(valist.addTeamMember("", members[1]))
+      .to.be.revertedWith('err-team-member');
+  });
+});
+
+describe("removeTeamMember", () => {
+  it("Should emit TeamMemberRemoved", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    await expect(valist.removeTeamMember("acme", members[1]))
+      .to.emit(valist, "TeamMemberRemoved");
+  });
+
+  it("Should fail with no team member", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members.slice(1));
+    await createTeamTx.wait();
+
+    await expect(valist.removeTeamMember("acme", members[0]))
+      .to.be.revertedWith('err-team-member');
+  });
+
+  it("Should fail with non existant member", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members.slice(0, 3));
+    await createTeamTx.wait();
+
+    await expect(valist.removeTeamMember("acme", members[5]))
+      .to.be.revertedWith('err-member-not-exist');
+  });
+
+  it("Should fail with empty team name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    await expect(valist.removeTeamMember("", members[1]))
+      .to.be.revertedWith('err-team-member');
+  });
+});
+
+describe("addProjectMember", () => {
+  it("Should emit ProjectMemberAdded", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", []);
+    await createProjectTx.wait();
+
+    await expect(valist.addProjectMember("acme", "bin", members[0]))
+      .to.emit(valist, "ProjectMemberAdded");
+  });
+
+  it("Should fail with duplicate member", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    await expect(valist.addProjectMember("acme", "bin", members[0]))
+      .to.be.revertedWith('err-member-exist');
+  });
+
+  it("Should fail with no team member", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+    const signers = await ethers.getSigners();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members.slice(0, 1));
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", []);
+    await createProjectTx.wait();
+
+    await expect(valist.connect(signers[1]).addProjectMember("acme", "bin", members[0]))
+      .to.be.revertedWith('err-team-member');
+  });
+
+  it("Should fail with empty team name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", []);
+    await createProjectTx.wait();
+
+    await expect(valist.addProjectMember("", "bin", members[0]))
+      .to.be.revertedWith('err-proj-not-exist');
+  });
+
+  it("Should fail with empty project name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", []);
+    await createProjectTx.wait();
+
+    await expect(valist.addProjectMember("acme", "", members[0]))
+      .to.be.revertedWith('err-proj-not-exist');
+  });
+});
+
+describe("removeProjectMember", () => {
+  it("Should emit ProjectMemberRemoved", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    await expect(valist.removeProjectMember("acme", "bin", members[0]))
+      .to.emit(valist, "ProjectMemberRemoved");
+  });
+
+  it("Should fail with non existant member", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members.slice(0, 3));
+    await createProjectTx.wait();
+
+    await expect(valist.removeProjectMember("acme", "bin", members[5]))
+      .to.be.revertedWith('err-member-not-exist');
+  });
+
+  it("Should fail with no team member", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+    const signers = await ethers.getSigners();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members.slice(0, 1));
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    await expect(valist.connect(signers[1]).removeProjectMember("acme", "bin", members[0]))
+      .to.be.revertedWith('err-team-member');
+  });
+
+  it("Should fail with empty team name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    await expect(valist.removeProjectMember("", "bin", members[0]))
+      .to.be.revertedWith('err-proj-not-exist');
+  });
+
+  it("Should fail with empty project name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    await expect(valist.removeProjectMember("acme", "", members[0]))
+      .to.be.revertedWith('err-proj-not-exist');
+  });
+});
+
+describe("setTeamMetaCID", () => {
+  it("Should emit TeamUpdated", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    await expect(valist.setTeamMetaCID("acme", "baf"))
+      .to.emit(valist, "TeamUpdated");
+  });
+
+  it("Should fail with no team member", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members.slice(1));
+    await createTeamTx.wait();
+
+    await expect(valist.setTeamMetaCID("acme", "baf"))
+      .to.be.revertedWith('err-team-member');
+  });
+
+  it("Should fail with empty team name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    await expect(valist.setTeamMetaCID("", "baf"))
+      .to.be.revertedWith('err-team-member');
+  });
+
+  it("Should fail with empty meta", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    await expect(valist.setTeamMetaCID("acme", ""))
+      .to.be.revertedWith('err-empty-meta');
+  });
+});
+
+describe("setProjectMetaCID", () => {
+  it("Should emit ProjectUpdated", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    await expect(valist.setProjectMetaCID("acme", "bin", "baf"))
+      .to.emit(valist, "ProjectUpdated");
+  });
+
+  it("Should fail with no team member", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+    const signers = await ethers.getSigners();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members.slice(0, 1));
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    await expect(valist.connect(signers[1]).setProjectMetaCID("acme", "bin", "baf"))
+      .to.be.revertedWith('err-team-member');
+  });
+
+  it("Should fail with empty team name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    await expect(valist.setProjectMetaCID("", "bin", "baf"))
+      .to.be.revertedWith('err-team-member');
+  });
+
+  it("Should fail with empty project name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    await expect(valist.setProjectMetaCID("acme", "", "baf"))
+      .to.be.revertedWith('err-proj-not-exist');
+  });
+
+  it("Should fail with empty meta", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    await expect(valist.setProjectMetaCID("acme", "bin", ""))
+      .to.be.revertedWith('err-empty-meta');
+  });
+});
+
+describe("getTeamMetaCID", () => {
+  it("Should return team meta", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const metaCID = await valist.getTeamMetaCID("acme");
+    expect(metaCID).to.equal("Qm");
+  });
+
+  it("Should fail with non existant team", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    await expect(valist.getTeamMetaCID("acme"))
+      .to.be.revertedWith('err-team-not-exist');
+  });
+});
+
+describe("getProjectMetaCID", () => {
+  it("Should return project meta", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm1", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm2", []);
+    await createProjectTx.wait();
+
+    const metaCID = await valist.getProjectMetaCID("acme", "bin");
+    expect(metaCID).to.equal("Qm2");
+  });
+
+  it("Should fail with non existant project", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    await expect(valist.getProjectMetaCID("acme", "bin"))
+      .to.be.revertedWith('err-proj-not-exist');
+  });
+});
+
+describe("getReleaseMetaCID", () => {
+  it("Should return release meta", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm1", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm2", members);
+    await createProjectTx.wait();
+
+    const createReleaseTx = await valist.createRelease("acme", "bin", "0.0.1", "Qm3");
+    await createReleaseTx.wait();
+
+    const metaCID = await valist.getReleaseMetaCID("acme", "bin", "0.0.1");
+    expect(metaCID).to.equal("Qm3");
+  });
+
+  it("Should fail with non existant release", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    await expect(valist.getReleaseMetaCID("acme", "bin", "0.0.1"))
+      .to.be.revertedWith('err-release-not-exist');
+  });
+});
+
+describe("getLatestReleaseName", () => {
+  it("Should return latest release name", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm1", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm2", members);
+    await createProjectTx.wait();
+
+    for (let i = 0; i < 6; i++) {
+      const createReleaseTx = await valist.createRelease("acme", "bin", `0.0.${i}`, "Qm");
+      await createReleaseTx.wait();  
+    }
+
+    const name = await valist.getLatestReleaseName("acme", "bin");
+    expect(name).to.equal("0.0.5");
+  });
+
+  it("Should fail with non existant release", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    await expect(valist.getLatestReleaseName("acme", "bin"))
+      .to.be.revertedWith('err-proj-not-exist');
+  });
+});
+
+describe("getTeamNames", () => {
+  it("Should return team names", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    for (let i = 0; i < 4; i++) {
+      const createTeamTx = await valist.createTeam(`acme-${i}`, "Qm", members);
+      await createTeamTx.wait();
+    }
+
+    const page1 = await valist.getTeamNames(0, 2);
+    expect(page1).to.have.ordered.members(["acme-0", "acme-1"]);
+
+    const page2 = await valist.getTeamNames(1, 2);
+    expect(page2).to.have.ordered.members(["acme-2", "acme-3"]);
+  });
+});
+
+describe("getProjectNames", () => {
+  it("Should return project names", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    for (let i = 0; i < 4; i++) {
+      const createProjectTx = await valist.createProject("acme", `bin-${i}`, "Qm", []);
+      await createProjectTx.wait();
+    }
+
+    const page1 = await valist.getProjectNames("acme", 0, 2);
+    expect(page1).to.have.ordered.members(["bin-0", "bin-1"]);
+
+    const page2 = await valist.getProjectNames("acme", 1, 2);
+    expect(page2).to.have.ordered.members(["bin-2", "bin-3"]);
+  });
+});
+
+describe("getReleaseNames", () => {
+  it("Should return release names", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    for (let i = 0; i < 4; i++) {
+      const createReleaseTx = await valist.createRelease("acme", "bin", `0.0.${i}`, "Qm");
+      await createReleaseTx.wait();
+    }
+
+    const page1 = await valist.getReleaseNames("acme", "bin", 0, 2);
+    expect(page1).to.have.ordered.members(["0.0.0", "0.0.1"]);
+
+    const page2 = await valist.getReleaseNames("acme", "bin", 1, 2);
+    expect(page2).to.have.ordered.members(["0.0.2", "0.0.3"]);
+  });
+});
+
+describe("getReleaseApprovals", () => {
+  it("Should return approval addresses", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+    const signers = await ethers.getSigners();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    const createReleaseTx = await valist.createRelease("acme", "bin", "0.0.1", "Qm");
+    await createReleaseTx.wait();
+
+    for (let i = 0; i < signers.length; i++) {
+      const approveReleaseTx = await valist.connect(signers[i]).approveRelease("acme", "bin", "0.0.1");
+      await approveReleaseTx.wait();  
+    }
+
+    const page1 = await valist.getReleaseApprovers("acme", "bin", "0.0.1", 0, 10);
+    expect(page1).to.have.ordered.members(members.slice(0, 10));
+
+    const page2 = await valist.getReleaseApprovers("acme", "bin", "0.0.1", 1, 10);
+    expect(page2).to.have.ordered.members(members.slice(10, 20));
+  });
+});
+
+describe("getReleaseRejections", () => {
+  it("Should return rejection addresses", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+    const signers = await ethers.getSigners();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    const createReleaseTx = await valist.createRelease("acme", "bin", "0.0.1", "Qm");
+    await createReleaseTx.wait();
+
+    for (let i = 0; i < signers.length; i++) {
+      const rejectReleaseTx = await valist.connect(signers[i]).rejectRelease("acme", "bin", "0.0.1");
+      await rejectReleaseTx.wait();  
+    }
+
+    const page1 = await valist.getReleaseRejectors("acme", "bin", "0.0.1", 0, 10);
+    expect(page1).to.have.ordered.members(members.slice(0, 10));
+
+    const page2 = await valist.getReleaseRejectors("acme", "bin", "0.0.1", 1, 10);
+    expect(page2).to.have.ordered.members(members.slice(10, 20));
+  });
+});
+
+async function deployValist() {
+  const Valist = await ethers.getContractFactory("Valist");
+  const valist = await Valist.deploy("0x9399BB24DBB5C4b782C70c2969F58716Ebbd6a3b");
+  
+  await valist.deployed();
+  return valist;
+}
+
+async function getAddresses() {
+  const signers = await ethers.getSigners();
+  return signers.map((acct) => acct.address);
+}
