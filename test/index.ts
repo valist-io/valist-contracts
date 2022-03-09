@@ -6,7 +6,7 @@ describe("createTeam", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    await expect(valist.createTeam("acme", "Qm", members))
+    await expect(valist.createTeam("acme", "Qm", members[0], members))
       .to.emit(valist, 'TeamCreated');
   });
 
@@ -14,17 +14,18 @@ describe("createTeam", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
-    await expect(valist.createTeam("acme", "Qm", members))
+    await expect(valist.createTeam("acme", "Qm", members[0], members))
       .to.be.revertedWith('err-name-claimed');
   });
 
   it("Should fail with empty members", async function() {
     const valist = await deployValist();
+    const members = await getAddresses();
 
-    await expect(valist.createTeam("acme", "Qm", []))
+    await expect(valist.createTeam("acme", "Qm", members[0], []))
       .to.be.revertedWith('err-empty-members');
   });
 
@@ -32,7 +33,7 @@ describe("createTeam", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    await expect(valist.createTeam("", "Qm", members))
+    await expect(valist.createTeam("", "Qm", members[0], members))
       .to.be.revertedWith('err-empty-name');
   });
 
@@ -40,7 +41,7 @@ describe("createTeam", () => {
     const valist = await deployValist();
     const members = await getAddresses();
     
-    await expect(valist.createTeam("acme", "", members))
+    await expect(valist.createTeam("acme", "", members[0], members))
       .to.be.revertedWith('err-empty-meta');
   });
 });
@@ -50,7 +51,7 @@ describe("createProject", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     await expect(valist.createProject("acme", "bin", "Qm", members))
@@ -61,7 +62,7 @@ describe("createProject", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     await expect(valist.createProject("acme", "bin", "Qm", []))
@@ -72,7 +73,7 @@ describe("createProject", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", []);
@@ -86,7 +87,7 @@ describe("createProject", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members.slice(1));
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members.slice(1));
     await createTeamTx.wait();
 
     await expect(valist.createProject("acme", "bin", "Qm", []))
@@ -97,7 +98,7 @@ describe("createProject", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     await expect(valist.createProject("", "bin", "Qm", []))
@@ -108,7 +109,7 @@ describe("createProject", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     await expect(valist.createProject("acme", "", "Qm", []))
@@ -119,7 +120,7 @@ describe("createProject", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     await expect(valist.createProject("acme", "bin", "", []))
@@ -132,7 +133,7 @@ describe("createRelease", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -142,25 +143,25 @@ describe("createRelease", () => {
       .to.emit(valist, 'ReleaseCreated');
   });
 
-  it("Should fail with no project member", async function() {
+  it("Should publish with no project member", async function() {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
-    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members.slice(1));
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", []);
     await createProjectTx.wait();
 
     await expect(valist.createRelease("acme", "bin", "0.0.1", "Qm"))
-      .to.be.revertedWith('err-proj-member');
+      .to.emit(valist, 'ReleaseCreated');
   });
 
   it("Should fail with claimed name", async function() {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -177,7 +178,7 @@ describe("createRelease", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -191,7 +192,7 @@ describe("createRelease", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -205,21 +206,21 @@ describe("createRelease", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
     await createProjectTx.wait();
 
     await expect(valist.createRelease("acme", "", "0.0.1", "Qm"))
-      .to.be.revertedWith('err-proj-member');
+      .to.be.revertedWith('err-empty-name');
   });
 
   it("Should fail with empty meta", async function() {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -235,7 +236,7 @@ describe("approveRelease", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -252,7 +253,7 @@ describe("approveRelease", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -269,7 +270,7 @@ describe("approveRelease", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -286,7 +287,7 @@ describe("approveRelease", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -305,7 +306,7 @@ describe("rejectRelease", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -322,7 +323,7 @@ describe("rejectRelease", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -339,7 +340,7 @@ describe("rejectRelease", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -356,7 +357,7 @@ describe("rejectRelease", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -375,7 +376,7 @@ describe("addTeamMember", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members.slice(0, 1));
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members.slice(0, 1));
     await createTeamTx.wait();
 
     await expect(valist.addTeamMember("acme", members[1]))
@@ -386,7 +387,7 @@ describe("addTeamMember", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     await expect(valist.addTeamMember("acme", members[1]))
@@ -397,7 +398,7 @@ describe("addTeamMember", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members.slice(1));
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members.slice(1));
     await createTeamTx.wait();
 
     await expect(valist.addTeamMember("acme", members[0]))
@@ -408,7 +409,7 @@ describe("addTeamMember", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     await expect(valist.addTeamMember("", members[1]))
@@ -421,7 +422,7 @@ describe("removeTeamMember", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     await expect(valist.removeTeamMember("acme", members[1]))
@@ -432,7 +433,7 @@ describe("removeTeamMember", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members.slice(1));
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members.slice(1));
     await createTeamTx.wait();
 
     await expect(valist.removeTeamMember("acme", members[0]))
@@ -443,7 +444,7 @@ describe("removeTeamMember", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members.slice(0, 3));
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members.slice(0, 3));
     await createTeamTx.wait();
 
     await expect(valist.removeTeamMember("acme", members[5]))
@@ -454,7 +455,7 @@ describe("removeTeamMember", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     await expect(valist.removeTeamMember("", members[1]))
@@ -467,7 +468,7 @@ describe("addProjectMember", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", []);
@@ -481,7 +482,7 @@ describe("addProjectMember", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -496,7 +497,7 @@ describe("addProjectMember", () => {
     const members = await getAddresses();
     const signers = await ethers.getSigners();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members.slice(0, 1));
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members.slice(0, 1));
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", []);
@@ -510,7 +511,7 @@ describe("addProjectMember", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", []);
@@ -524,7 +525,7 @@ describe("addProjectMember", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", []);
@@ -540,7 +541,7 @@ describe("removeProjectMember", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -554,7 +555,7 @@ describe("removeProjectMember", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members.slice(0, 3));
@@ -569,7 +570,7 @@ describe("removeProjectMember", () => {
     const members = await getAddresses();
     const signers = await ethers.getSigners();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members.slice(0, 1));
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members.slice(0, 1));
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -583,7 +584,7 @@ describe("removeProjectMember", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -597,7 +598,7 @@ describe("removeProjectMember", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -608,15 +609,15 @@ describe("removeProjectMember", () => {
   });
 });
 
-describe("setTeamMetaCID", () => {
+describe("setTeamMetaURI", () => {
   it("Should emit TeamUpdated", async function() {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
-    await expect(valist.setTeamMetaCID("acme", "baf"))
+    await expect(valist.setTeamMetaURI("acme", "baf"))
       .to.emit(valist, "TeamUpdated");
   });
 
@@ -624,10 +625,10 @@ describe("setTeamMetaCID", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members.slice(1));
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members.slice(1));
     await createTeamTx.wait();
 
-    await expect(valist.setTeamMetaCID("acme", "baf"))
+    await expect(valist.setTeamMetaURI("acme", "baf"))
       .to.be.revertedWith('err-team-member');
   });
 
@@ -635,10 +636,10 @@ describe("setTeamMetaCID", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
-    await expect(valist.setTeamMetaCID("", "baf"))
+    await expect(valist.setTeamMetaURI("", "baf"))
       .to.be.revertedWith('err-team-member');
   });
 
@@ -646,26 +647,26 @@ describe("setTeamMetaCID", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
-    await expect(valist.setTeamMetaCID("acme", ""))
+    await expect(valist.setTeamMetaURI("acme", ""))
       .to.be.revertedWith('err-empty-meta');
   });
 });
 
-describe("setProjectMetaCID", () => {
+describe("setProjectMetaURI", () => {
   it("Should emit ProjectUpdated", async function() {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
     await createProjectTx.wait();
 
-    await expect(valist.setProjectMetaCID("acme", "bin", "baf"))
+    await expect(valist.setProjectMetaURI("acme", "bin", "baf"))
       .to.emit(valist, "ProjectUpdated");
   });
 
@@ -674,13 +675,13 @@ describe("setProjectMetaCID", () => {
     const members = await getAddresses();
     const signers = await ethers.getSigners();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members.slice(0, 1));
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members.slice(0, 1));
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
     await createProjectTx.wait();
 
-    await expect(valist.connect(signers[1]).setProjectMetaCID("acme", "bin", "baf"))
+    await expect(valist.connect(signers[1]).setProjectMetaURI("acme", "bin", "baf"))
       .to.be.revertedWith('err-team-member');
   });
 
@@ -688,13 +689,13 @@ describe("setProjectMetaCID", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
     await createProjectTx.wait();
 
-    await expect(valist.setProjectMetaCID("", "bin", "baf"))
+    await expect(valist.setProjectMetaURI("", "bin", "baf"))
       .to.be.revertedWith('err-team-member');
   });
 
@@ -702,13 +703,13 @@ describe("setProjectMetaCID", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
     await createProjectTx.wait();
 
-    await expect(valist.setProjectMetaCID("acme", "", "baf"))
+    await expect(valist.setProjectMetaURI("acme", "", "baf"))
       .to.be.revertedWith('err-proj-not-exist');
   });
 
@@ -716,68 +717,56 @@ describe("setProjectMetaCID", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
     await createProjectTx.wait();
 
-    await expect(valist.setProjectMetaCID("acme", "bin", ""))
+    await expect(valist.setProjectMetaURI("acme", "bin", ""))
       .to.be.revertedWith('err-empty-meta');
   });
 });
 
-describe("getTeamMetaCID", () => {
-  it("Should return team meta", async function() {
+describe("getTeamID", () => {
+  it("Should generate teamID from teamName", async function () {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm1", members[0], members);
     await createTeamTx.wait();
 
-    const metaCID = await valist.getTeamMetaCID("acme");
-    expect(metaCID).to.equal("Qm");
-  });
+    const teamID = await valist.getTeamID("acme");
 
-  it("Should fail with non existant team", async function() {
-    const valist = await deployValist();
-    const members = await getAddresses();
-
-    await expect(valist.getTeamMetaCID("acme"))
-      .to.be.revertedWith('err-team-not-exist');
-  });
+    expect(teamID.toHexString()).to.equal("0xd536bdbb7dd07f6d4a73e4ad4defa1c64e0078a4d77d4fc1cbf62b2c57ca9ef9");
+  })
 });
 
-describe("getProjectMetaCID", () => {
-  it("Should return project meta", async function() {
+describe("getProjectID", () => {
+  it("Should generate projectID from teamID and projectName", async function () {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm1", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm1", members[0], members);
     await createTeamTx.wait();
 
-    const createProjectTx = await valist.createProject("acme", "bin", "Qm2", []);
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm2", members);
     await createProjectTx.wait();
 
-    const metaCID = await valist.getProjectMetaCID("acme", "bin");
-    expect(metaCID).to.equal("Qm2");
-  });
+    const teamID = await valist.getTeamID("acme");
+    const projectID = await valist.getProjectID(teamID, "bin");
 
-  it("Should fail with non existant project", async function() {
-    const valist = await deployValist();
-    const members = await getAddresses();
-
-    await expect(valist.getProjectMetaCID("acme", "bin"))
-      .to.be.revertedWith('err-proj-not-exist');
-  });
+    expect(teamID.toHexString()).to.equal("0xd536bdbb7dd07f6d4a73e4ad4defa1c64e0078a4d77d4fc1cbf62b2c57ca9ef9");
+    expect(projectID.toHexString()).to.equal("0x1a240c874444b80e555f1c03ed5daec7f099acda27441020ef344496a5fd81d5");
+  })
 });
 
-describe("getReleaseMetaCID", () => {
-  it("Should return release meta", async function() {
+describe("getReleaseID", () => {
+  it("Should generate releaseID from projectID and releaseName", async function () {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm1", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm1", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm2", members);
@@ -786,15 +775,84 @@ describe("getReleaseMetaCID", () => {
     const createReleaseTx = await valist.createRelease("acme", "bin", "0.0.1", "Qm3");
     await createReleaseTx.wait();
 
-    const metaCID = await valist.getReleaseMetaCID("acme", "bin", "0.0.1");
-    expect(metaCID).to.equal("Qm3");
+    const teamID = await valist.getTeamID("acme");
+    const projectID = await valist.getProjectID(teamID, "bin");
+    const releaseID = await valist.getReleaseID(projectID, "0.0.1");
+
+    expect(teamID.toHexString()).to.equal("0xd536bdbb7dd07f6d4a73e4ad4defa1c64e0078a4d77d4fc1cbf62b2c57ca9ef9");
+    expect(projectID.toHexString()).to.equal("0x1a240c874444b80e555f1c03ed5daec7f099acda27441020ef344496a5fd81d5");
+    expect(releaseID.toHexString()).to.equal("0x961bc62a541f18ddd675b881528d3482ef44658f76a61398763fdeb19fa9dd0e");
+  })
+});
+
+describe("getTeamMetaURI", () => {
+  it("Should return team meta", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
+    await createTeamTx.wait();
+
+    const metaURI = await valist.getTeamMetaURI("acme");
+    expect(metaURI).to.equal("Qm");
+  });
+
+  it("Should fail with non existant team", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    await expect(valist.getTeamMetaURI("acme"))
+      .to.be.revertedWith('err-team-not-exist');
+  });
+});
+
+describe("getProjectMetaURI", () => {
+  it("Should return project meta", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm1", members[0], members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm2", []);
+    await createProjectTx.wait();
+
+    const metaURI = await valist.getProjectMetaURI("acme", "bin");
+    expect(metaURI).to.equal("Qm2");
+  });
+
+  it("Should fail with non existant project", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    await expect(valist.getProjectMetaURI("acme", "bin"))
+      .to.be.revertedWith('err-proj-not-exist');
+  });
+});
+
+describe("getReleaseMetaURI", () => {
+  it("Should return release meta", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm1", members[0], members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm2", members);
+    await createProjectTx.wait();
+
+    const createReleaseTx = await valist.createRelease("acme", "bin", "0.0.1", "Qm3");
+    await createReleaseTx.wait();
+
+    const metaURI = await valist.getReleaseMetaURI("acme", "bin", "0.0.1");
+    expect(metaURI).to.equal("Qm3");
   });
 
   it("Should fail with non existant release", async function() {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    await expect(valist.getReleaseMetaCID("acme", "bin", "0.0.1"))
+    await expect(valist.getReleaseMetaURI("acme", "bin", "0.0.1"))
       .to.be.revertedWith('err-release-not-exist');
   });
 });
@@ -804,7 +862,7 @@ describe("getLatestReleaseName", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm1", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm1", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm2", members);
@@ -834,7 +892,7 @@ describe("getTeamNames", () => {
     const members = await getAddresses();
 
     for (let i = 0; i < 4; i++) {
-      const createTeamTx = await valist.createTeam(`acme-${i}`, "Qm", members);
+      const createTeamTx = await valist.createTeam(`acme-${i}`, "Qm", members[0], members);
       await createTeamTx.wait();
     }
 
@@ -851,7 +909,7 @@ describe("getProjectNames", () => {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     for (let i = 0; i < 4; i++) {
@@ -867,12 +925,66 @@ describe("getProjectNames", () => {
   });
 });
 
+describe("getTeamMembers", () => {
+  it("Should return list of team members", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
+    await createTeamTx.wait();
+
+    const page1 = await valist.getTeamMembers("acme", 0, 2);
+    expect(page1).to.have.ordered.members([members[0], members[1]]);
+
+    const page2 = await valist.getTeamMembers("acme", 1, 2);
+    expect(page2).to.have.ordered.members([members[2], members[3]]);
+  });
+});
+
+describe("getProjectMembers", () => {
+  it("Should return list of project members", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    const page1 = await valist.getProjectMembers("acme", "bin", 0, 3);
+    expect(page1).to.have.ordered.members([members[0], members[1], members[2]]);
+
+    const page2 = await valist.getProjectMembers("acme", "bin", 1, 3);
+    expect(page2).to.have.ordered.members([members[3], members[4], members[5]]);
+  });
+});
+
+describe("getReleaseMembers", () => {
+  it("Should return list of release members", async function() {
+    const valist = await deployValist();
+    const members = await getAddresses();
+
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
+    await createTeamTx.wait();
+
+    const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
+    await createProjectTx.wait();
+
+    const page1 = await valist.getProjectMembers("acme", "bin", 0, 2);
+    expect(page1).to.have.ordered.members([members[0], members[1]]);
+
+    const page2 = await valist.getProjectMembers("acme", "bin", 1, 2);
+    expect(page2).to.have.ordered.members([members[2], members[3]]);
+  });
+});
+
 describe("getReleaseNames", () => {
   it("Should return release names", async function() {
     const valist = await deployValist();
     const members = await getAddresses();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -897,7 +1009,7 @@ describe("getReleaseApprovals", () => {
     const members = await getAddresses();
     const signers = await ethers.getSigners();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -925,7 +1037,7 @@ describe("getReleaseRejections", () => {
     const members = await getAddresses();
     const signers = await ethers.getSigners();
 
-    const createTeamTx = await valist.createTeam("acme", "Qm", members);
+    const createTeamTx = await valist.createTeam("acme", "Qm", members[0], members);
     await createTeamTx.wait();
 
     const createProjectTx = await valist.createProject("acme", "bin", "Qm", members);
@@ -947,7 +1059,7 @@ describe("getReleaseRejections", () => {
   });
 });
 
-async function deployValist() {
+export async function deployValist() {
   const Valist = await ethers.getContractFactory("Valist");
   const valist = await Valist.deploy("0x9399BB24DBB5C4b782C70c2969F58716Ebbd6a3b");
   
@@ -955,7 +1067,7 @@ async function deployValist() {
   return valist;
 }
 
-async function getAddresses() {
+export async function getAddresses() {
   const signers = await ethers.getSigners();
   return signers.map((acct) => acct.address);
 }

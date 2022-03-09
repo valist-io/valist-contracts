@@ -1,155 +1,136 @@
-const httpapi = require("ipfs-http-client");
+import path from "path";
 
-interface Args {
-  valist: string;
+/* eslint-disable no-process-exit */
+const httpapi = require("ipfs-http-client");
+const fs = require("fs");
+
+async function PinTeamMeta() {
+  const ipfs = httpapi.create();
+  const imageFile = fs.readFileSync(
+    path.join(__dirname, "data/valist-test.jpg")
+  );
+  const imagePin = await ipfs.add(imageFile);
+
+  /* Pin Empty Image Team Meta */
+  const empty = JSON.stringify({
+    image: "",
+    name: "test",
+    description: "An example library for demoing valist.",
+    external_url: "https://example.com",
+  });
+  const resp = await ipfs.add(empty);
+  console.log("Empty meta CID", resp.cid.toString());
+
+  const meta = JSON.stringify({
+    image: 'http://localhost:8080/ipfs/' + imagePin.cid.toString(),
+    name: "test team",
+    description: "A test team description.",
+    external_url: "https://example.com",
+  });
+  const { cid } = await ipfs.add(meta);
+  return 'http://localhost:8080/ipfs/' + cid.toString();
 }
 
-const PinRepoMeta = async () => {
+const PinProjectMeta = async () => {
   const ipfs = httpapi.create();
-  const meta = JSON.stringify({
-    name: "test",
-    description: "A test project description.",
-  });
-  const { cid } = await ipfs.add(meta);
-  return cid.toString();
-};
+  const imageFile = fs.readFileSync(
+    path.join(__dirname, "data/valist-test.jpg")
+  );
+  const imagePin = await ipfs.add(imageFile);
 
-const PinOrgMeta = async () => {
-  const ipfs = httpapi.create();
   const meta = JSON.stringify({
-    name: "test",
-    description: "A test account description.",
+    image: 'http://localhost:8080/ipfs/' + imagePin.cid.toString(),
+    name: "test project",
+    description: "An example library for demoing valist.",
+    external_url: "https://git.example.com",
   });
-  const { cid } = await ipfs.add(meta);
-  return cid.toString();
+  const metaPin = await ipfs.add(meta);
+  return 'http://localhost:8080/ipfs/' + metaPin.cid.toString();
 };
 
 const PinReleaseMeta = async () => {
   const ipfs = httpapi.create();
+  const imageFile = fs.readFileSync(
+    path.join(__dirname, "data/valist-test.jpg")
+  );
+  const imagePin = await ipfs.add(imageFile);
+
   const meta = JSON.stringify({
-    name: "valist/sdk/0.5.2",
-    readme:
-      "# Valist SDK\n\nThis folder contains the Valist SDK/core library that bridges the IPFS and Ethereum networks.\n\n## Documentation\n\nFor the TypeScript API documentation, please see the following link:\n\n* [TypeScript API Docs](https://docs.valist.io/lib/classes/_index_.valist.html)\n\n## Installation\n\n```shell\nnpm install\n```\n\n## Building\n\n```shell\nnpm run build\n```\n\n## Linting\n\n```shell\nnpm run lint\n```\n",
-    version: "0.5.2",
-    license: "MPL-2.0",
-    dependencies: [
-      "encoding",
-      "eth-sig-util",
-      "ipfs-http-client",
-      "node-fetch",
-      "web3",
-      "web3-core",
-    ],
-    artifacts: {
-      "@valist/sdk-0.5.2.tgz": {
-        sha256: "",
-        provider: "/ipfs/QmcLspRr6QBoktravDHC6LopEczLUNvRm28T1HbKtgS9eN",
-      },
-      "doc.json": {
-        sha256: "",
-        provider: "/ipfs/QmQsWXTuKkvpQtVRhnGvGrnQCzoK4vwo59MGcKWFGW9mrJ",
-      },
-    },
+    image: 'http://localhost:8080/ipfs/' + imagePin.cid.toString(),
+    name: "test/test/0.0.1",
+    description: "# Test Project\n\nThis folder contains the test project library with test code for IPFS and Ethereum.\n\n## Documentation\n\nFor the TypeScript API documentation, please see the following link:\n\n* [API Docs](https://docs.example.com/)\n\n## Installation\n\n```shell\nnpm install\n```\n\n## Building\n\n```shell\nnpm run build\n```\n\n## Linting\n\n```shell\nnpm run lint\n```\n",
+    external_url: "http://localhost:8080/ipfs/QmcLspRr6QBoktravDHC6LopEczLUNvRm28T1HbKtgS9eN"
   });
   const { cid } = await ipfs.add(meta);
-  return cid.toString();
+  return 'http://localhost:8080/ipfs/' + cid.toString();
 };
 
 async function bootstrap() {
   const accounts = await hre.ethers.getSigners();
-  const Valist = await hre.ethers.getContractFactory("Valist");
-  const valist = await Valist.deploy();
-  await valist.deployed();
-
-  const ADD_KEY = hre.ethers.utils.keccak256(
-    hre.ethers.utils.solidityPack(["string"], ["ADD_KEY_OPERATION"])
+  const valist = await hre.ethers.getContractAt(
+    "Valist",
+    "0xe78A0F7E598Cc8b0Bb87894B0F60dD2a88d6a8Ab"
   );
 
-  console.log("Valist deployed to:", valist.address);
-  console.log();
-
-  const metaCID = "bafybeigmfwlweiecbubdw4lq6uqngsioqepntcfohvrccr2o5f7flgydme";
-  const orgNames1 = ["test1", "test2", "test3", "test4"];
-  const orgNames2 = ["test5", "test6", "test7", "test8"];
-  const repoName = "test";
-  const repoMetaCid = await PinRepoMeta();
-  const orgMetaCid = await PinOrgMeta();
+  const teamNames1 = ["test1", "test2", "test3", "test4"];
+  const projectNames = ["geth", "ipfs", "ganache", "bor"];
+  const teamMetaCid = await PinTeamMeta();
+  const projectMetaCid = await PinProjectMeta();
   const releaseMetaCid = await PinReleaseMeta();
-  console.log("Repo Meta CID", repoMetaCid);
-  console.log("Org Meta CID", orgMetaCid);
+  console.log("Team Meta CID", teamMetaCid);
+  console.log("Project Meta CID", projectMetaCid);
   console.log("Release Meta CID", releaseMetaCid);
   console.log();
 
-  for (let i = 0; i < orgNames1.length; i++) {
-    console.log("Creating org", orgNames1[i]);
-    const orgTx = await valist.createOrganization(orgMetaCid);
-    const orgTxRec = await orgTx.wait();
-    const parsed = valist.interface.parseLog(orgTxRec.logs[0]);
-    const orgID = parsed.args[0];
+  const account0 = await accounts[0].getAddress();
+  const account1 = await accounts[1].getAddress();
+  const account2 = await accounts[2].getAddress();
+  console.log("Account 0", account0);
+  console.log("Account 1", account1);
+  console.log("Account 2", account2);
+  console.log();
 
-    console.log("Linking Org ID", orgID, "to", orgNames1[i]);
-    await valist.linkNameToID(orgID, orgNames1[i]);
-
-    console.log("Creating repo", orgNames1[i], repoName);
-    await valist.createRepository(orgID, repoName, repoMetaCid);
-
-    console.log("Add addr1 as repoDev", await accounts[1].getAddress());
-    await valist.voteKey(
-      orgID,
-      repoName,
-      ADD_KEY,
-      await accounts[1].getAddress()
+  for (let i = 0; i < teamNames1.length; i++) {
+    console.log("Creating Team", teamNames1[i]);
+    const createTeamTx = await valist.createTeam(
+      teamNames1[i],
+      teamMetaCid,
+      account0,
+      [account0]
     );
+    await createTeamTx.wait();
 
-    console.log("Publishing release to", `${orgNames1[i]}/${repoName}`);
-    await valist.voteRelease(
-      orgID,
-      repoName,
+    console.log("Creating Project", teamNames1[i], projectNames[i]);
+    const createProjectTx = await valist.createProject(
+      teamNames1[i],
+      projectNames[i],
+      projectMetaCid,
+      [account0]
+    );
+    await createProjectTx.wait();
+
+    console.log(`Add addr1(${account1}) as projectMember`);
+    const addProjectMemberTx = await valist.addProjectMember(
+      teamNames1[i],
+      projectNames[i],
+      account1
+    );
+    await addProjectMemberTx.wait();
+
+    console.log("Publishing Release to", `${teamNames1[i]}/${projectNames[i]}`);
+    await valist.createRelease(
+      teamNames1[i],
+      projectNames[i],
       "0.0.1",
-      releaseMetaCid,
-      metaCID
+      releaseMetaCid
     );
-    console.log();
-  }
-
-  for (let i = 0; i < orgNames2.length; i++) {
-    console.log("Creating org", orgNames2[i]);
-    const orgTx = await valist
-      .connect(accounts[2])
-      .createOrganization(metaCID);
-
-    const orgTxRec = await orgTx.wait();
-    const parsed = valist.interface.parseLog(orgTxRec.logs[0]);
-    const orgID = parsed.args[0];
-
-    console.log("Linking Org ID", orgID, "to", orgNames2[i]);
-    await valist
-      .connect(accounts[2])
-      .linkNameToID(orgID, orgNames2[i]);
-
-    console.log("Creating repo", orgNames2[i], repoName);
-    await valist
-      .connect(accounts[2])
-      .createRepository(orgID, repoName, repoMetaCid);
-
-    console.log("Add addr1 as repoDev", await accounts[3].getAddress());
-    await valist
-      .connect(accounts[2])
-      .voteKey(orgID, repoName, ADD_KEY, await accounts[3].getAddress());
-
-    console.log("Publishing release to", `${orgNames2[i]}/${repoName}`);
-    await valist
-      .connect(accounts[2])
-      .voteRelease(orgID, repoName, "0.0.1", releaseMetaCid, metaCID);
     console.log();
   }
 }
 
 bootstrap()
-  // eslint-disable-next-line no-process-exit
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);
-    // eslint-disable-next-line no-process-exit
     process.exit(1);
   });
