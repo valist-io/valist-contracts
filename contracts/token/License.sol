@@ -223,6 +223,13 @@ contract License is ERC1155 {
     owner = _owner;
   }
 
+  /// Sets the mint fee percentage. Owner only.
+  ///
+  /// @param _mintFee Mint fee percentage.
+  function setMintFee(uint _mintFee) public onlyOwner {
+    mintFee = _mintFee;
+  }
+
   /// Modifier that ensures only the owner can call a function.
   modifier onlyOwner() {
     require(owner == _msgSender(), "caller is not the owner");
