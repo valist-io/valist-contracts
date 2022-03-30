@@ -361,7 +361,7 @@ contract Valist is Ownable {
     return uint(keccak256(abi.encodePacked(_parentID, keccak256(bytes(_name)))));
   }
 
-  /// Returns whether a given address is a member of an account.
+  /// Returns true if the address is a member of the team.
   ///
   /// @param _accountID ID of the account.
   /// @param _member Address of member.
@@ -369,12 +369,20 @@ contract Valist is Ownable {
     return accountByID[_accountID].members.contains(_member);
   }
 
-  /// Returns whether a given address is a member of a project.
+  /// Returns true if the address is a member of the project.
   ///
-  /// @param _projectID Unique project ID.
+  /// @param _projectID ID of the project.
   /// @param _member Address of member.
   function isProjectMember(uint _projectID, address _member) public view returns (bool) {
     return projectByID[_projectID].members.contains(_member);
+  }
+
+  /// Returns true if the address is a signer of the release.
+  ///
+  /// @param _releaseID ID of the release.
+  /// @param _signer Address of the signer.
+  function isReleaseSigner(uint _releaseID, address _signer) public view returns (bool) {
+    return releaseByID[_releaseID].signers.contains(_signer);
   }
 
   /// Returns a list of account members.
