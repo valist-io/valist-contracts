@@ -63,6 +63,45 @@ contract License is ERC1155 {
     registry = Registry(_registry);
   }
 
+  /// Mints a product using native tokens.
+  ///
+  /// @param _projectID ID of the project.
+  /// @param _recipient Address of the recipient.
+  function mint(uint _projectID, address _recipient) public payable {
+    require(productByID[_projectID].allow, "err-not-allowed");
+    require(msg.value >= productByID[_projectID].price, "err-value");
+
+    uint accountID = registry.getProjectAccountID(_projectID);
+    address payable beneficiary = registry.getBeneficiary(accountID);
+
+    uint splitFee = msg.value * mintFee;
+    Address.sendValue(treasury, splitFee);
+    Address.sendValue(beneficiary, msg.value - splitFee);
+
+    _mint(_recipient, _projectID, 1, "");
+  }
+
+  /// Mints a product using ERC20 tokens.
+  ///
+  /// @param _token ERC20 token address.
+  /// @param _projectID ID of the project.
+  /// @param _recipient Address of the recipient.
+  function mint(IERC20 _token, uint _projectID, address _recipient) public {
+    uint price = productByID[_projectID].priceERC20[_token];
+
+    require(productByID[_projectID].allowERC20[_token], "err-not-allowed");
+    require(_token.balanceOf(_msgSender()) >= price, "err-value");
+
+    uint accountID = registry.getProjectAccountID(_projectID);
+    address beneficiary = registry.getBeneficiary(accountID);
+
+    uint splitFee = price * mintFee;
+    SafeERC20.safeTransfer(_token, treasury, splitFee);
+    SafeERC20.safeTransfer(_token, beneficiary, price - splitFee);
+
+    _mint(_recipient, _projectID, 1, "");
+  }
+
   /// Allow sales of a product in native tokens.
   ///
   /// @param _projectID ID of the project.
@@ -161,45 +200,6 @@ contract License is ERC1155 {
   /// @param _projectID ID of the project.
   function getPrice(IERC20 _token, uint _projectID) public view returns(uint) {
     return productByID[_projectID].priceERC20[_token];
-  }
-
-  /// Mints a product using native tokens.
-  ///
-  /// @param _projectID ID of the project.
-  /// @param _recipient Address of the recipient.
-  function mint(uint _projectID, address _recipient) public payable {
-    require(productByID[_projectID].allow, "err-not-allowed");
-    require(msg.value >= productByID[_projectID].price, "err-value");
-
-    uint accountID = registry.getProjectAccountID(_projectID);
-    address payable beneficiary = registry.getBeneficiary(accountID);
-
-    uint splitFee = msg.value * mintFee;
-    Address.sendValue(treasury, splitFee);
-    Address.sendValue(beneficiary, msg.value - splitFee);
-
-    _mint(_recipient, _projectID, 1, "");
-  }
-
-  /// Mints a product using ERC20 tokens.
-  ///
-  /// @param _token ERC20 token address.
-  /// @param _projectID ID of the project.
-  /// @param _recipient Address of the recipient.
-  function mint(IERC20 _token, uint _projectID, address _recipient) public {
-    uint price = productByID[_projectID].priceERC20[_token];
-
-    require(productByID[_projectID].allowERC20[_token], "err-not-allowed");
-    require(_token.balanceOf(_msgSender()) >= price, "err-value");
-
-    uint accountID = registry.getProjectAccountID(_projectID);
-    address beneficiary = registry.getBeneficiary(accountID);
-
-    uint splitFee = price * mintFee;
-    SafeERC20.safeTransfer(_token, treasury, splitFee);
-    SafeERC20.safeTransfer(_token, beneficiary, price - splitFee);
-
-    _mint(_recipient, _projectID, 1, "");
   }
 
   /// Sets the treasury address. Owner only.
