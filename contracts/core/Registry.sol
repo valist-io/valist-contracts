@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 pragma solidity >=0.8.4;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@opengsn/contracts/src/BaseRelayRecipient.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /// @title Valist registry contract
@@ -14,7 +15,7 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 /// @custom:err-member-exist member already exists
 /// @custom:err-member-not-exist member does not exist
 /// @custom:err-not-exist account, project, or release does not exist
-contract Valist is Ownable {
+contract Registry is BaseRelayRecipient {
   using EnumerableSet for EnumerableSet.AddressSet;
 
   /// @dev emitted when an account is created
@@ -58,7 +59,7 @@ contract Valist is Ownable {
   event ProjectCreated(
     uint _accountID,
     uint _projectID,
-    string _name, 
+    string _name,
     string _metaURI, 
     address _sender
   );
@@ -106,7 +107,7 @@ contract Valist is Ownable {
   );
 
   struct Account {
-    address beneficiary;
+    address payable beneficiary;
     EnumerableSet.AddressSet members;
   }
 
@@ -130,17 +131,22 @@ contract Valist is Ownable {
   mapping(uint => string) public metaByID;
 
   /// @dev version of BaseRelayRecipient this contract implements
-  string public versionRecipient = "2.2.0";
-  /// @dev address of meta transaction forwarder
-  address public trustedForwarder;
+  string public override versionRecipient = "2.2.3";
+  /// @dev address of contract owner
+  address public owner;
+  /// @dev address of treasury to send funds to
+  address payable public treasury;
   /// @dev account name claim fee
   uint public claimFee;
 
-  /// Creates a Valist registry.
+  /// Creates a Valist Registry contract.
   ///
-  /// @param _trustedForwarder Address for meta transactions.
-  constructor(address _trustedForwarder) {
-    trustedForwarder = _trustedForwarder;
+  /// @param _forwarder Address of meta transaction forwarder.
+  /// @param _treasury Address of the treasury for receiving funds.
+  constructor(address _forwarder, address payable _treasury) {
+    owner = msg.sender;
+    treasury = _treasury;
+    _setTrustedForwarder(_forwarder);
   }
 
   /// Creates an account with the given members and beneficiary.
@@ -152,7 +158,7 @@ contract Valist is Ownable {
   function createAccount(
     string memory _name,
     string memory _metaURI,
-    address _beneficiary,
+    address payable _beneficiary,
     address[] memory _members
   )
     public
@@ -162,6 +168,8 @@ contract Valist is Ownable {
     require(bytes(_metaURI).length > 0, "err-empty-meta");
     require(bytes(_name).length > 0, "err-empty-name");
     require(_members.length > 0, "err-empty-members");
+
+    Address.sendValue(treasury, msg.value);
 
     uint accountID = generateID(block.chainid, _name);
     require(bytes(metaByID[accountID]).length == 0, "err-name-claimed");
@@ -318,7 +326,7 @@ contract Valist is Ownable {
   ///
   /// @param _accountID Unique ID of the account.
   /// @param _beneficiary Address of beneficiary.
-  function setBeneficiary(uint _accountID, address _beneficiary) public {
+  function setBeneficiary(uint _accountID, address payable _beneficiary) public {
     require(isAccountMember(_accountID, _msgSender()), "err-not-member");
     
     accountByID[_accountID].beneficiary = _beneficiary;
@@ -409,7 +417,7 @@ contract Valist is Ownable {
   /// Returns account beneficiary address.
   ///
   /// @param _accountID Unique ID of the account.
-  function getBeneficiary(uint _accountID) public view returns (address) {
+  function getBeneficiary(uint _accountID) public view returns (address payable) {
     return accountByID[_accountID].beneficiary;
   }
 
@@ -427,6 +435,13 @@ contract Valist is Ownable {
     return releaseByID[_releaseID].projectID;
   }
 
+  /// Sets the owner address. Owner only.
+  ///
+  /// @param _owner Address of the new owner.
+  function setOwner(address _owner) public onlyOwner {
+    owner = _owner;
+  }
+
   /// Sets the account claim fee. Owner only.
   ///
   /// @param _claimFee Claim fee amount in wei.
@@ -434,36 +449,23 @@ contract Valist is Ownable {
     claimFee = _claimFee;
   }
 
+  /// Sets the treasury address. Owner only.
+  ///
+  /// @param _treasury Address of the treasury for receiving funds.
+  function setTreasury(address payable _treasury) public onlyOwner {
+    treasury = _treasury;
+  }
+
   /// Sets the trusted forward address. Owner only.
   ///
-  /// @param _trustedForwarder Addresss of meta transcation forwarder.
-  function setTrustedForwarder(address _trustedForwarder) public onlyOwner {
-    trustedForwarder = _trustedForwarder;
+  /// @param _forwarder Address of meta transaction forwarder.
+  function setTrustedForwarder(address _forwarder) public onlyOwner {
+    _setTrustedForwarder(_forwarder);
   }
 
-  /// Returns true of if the address is the trusted forwarder.
-  ///
-  /// @param _forwarder Address to check.
-  function isTrustedForwarder(address _forwarder) public view returns (bool) {
-    return _forwarder == trustedForwarder;
-  }
-
-  function _msgSender() internal virtual override view returns (address sender) {
-    if (isTrustedForwarder(msg.sender)) {
-      // The assembly code is more direct than the Solidity version using `abi.decode`.
-      assembly {
-        sender := shr(96, calldataload(sub(calldatasize(), 20)))
-      }
-    } else {
-      return super._msgSender();
-    }
-  }
-
-  function _msgData() internal virtual override view returns (bytes calldata) {
-    if (isTrustedForwarder(msg.sender)) {
-      return msg.data[:msg.data.length - 20];
-    } else {
-      return super._msgData();
-    }
+  /// Modifier that ensures only the owner can call a function.
+  modifier onlyOwner() {
+    require(owner == _msgSender(), "caller is not the owner");
+    _;
   }
 }
