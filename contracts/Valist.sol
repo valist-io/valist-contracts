@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 pragma solidity >=0.8.4;
 
-import "./IValist.sol";
-import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /// @title Valist registry contract
@@ -11,757 +10,452 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 /// @custom:err-empty-members atleast one member is required
 /// @custom:err-empty-name name is required
 /// @custom:err-name-claimed name has already been claimed
-/// @custom:err-team-member sender is not a team member
-/// @custom:err-proj-member sender is not a project member
+/// @custom:err-not-member sender is not a member
 /// @custom:err-member-exist member already exists
 /// @custom:err-member-not-exist member does not exist
-/// @custom:err-release-not-exist release does not exist
-/// @custom:err-team-not-exist team does not exist
-/// @custom:err-proj-not-exist project does not exist
-contract Valist is IValist, ERC2771Context {
+/// @custom:err-not-exist account, project, or release does not exist
+contract Valist is Ownable {
   using EnumerableSet for EnumerableSet.AddressSet;
 
-  struct Team {
+  /// @dev emitted when an account is created
+  event AccountCreated(
+    uint _accountID,
+    string _name,
+    string _metaURI,
+    address _beneficiary,
+    address _sender
+  );
+
+  /// @dev emitted when an account is updated
+  event AccountUpdated(
+    uint _accountID,
+    string _metaURI,
+    address _sender
+  );
+
+  /// @dev emitted when an account member is added
+  event AccountMemberAdded(
+    uint _accountID,
+    address _member,
+    address _sender
+  );
+  
+  /// @dev emitted when an account member is removed
+  event AccountMemberRemoved(
+    uint _accountID,
+    address _member,
+    address _sender
+  );
+
+  /// @dev emitted when an account beneficiary is updated..
+  event BeneficiaryUpdated(
+    uint _accountID,
+    address _beneficiary,
+    address _sender
+  );
+
+  /// @dev emitted when a new project is created
+  event ProjectCreated(
+    uint _accountID,
+    uint _projectID,
+    string _name, 
+    string _metaURI, 
+    address _sender
+  );
+
+  /// @dev emitted when an existing project is updated
+  event ProjectUpdated(
+    uint _projectID,
+    string _metaURI,
+    address _sender
+  );
+
+  /// @dev emitted when a new project member is added
+  event ProjectMemberAdded(
+    uint _projectID,
+    address _member,
+    address _sender
+  );
+
+  /// @dev emitted when an existing project member is removed
+  event ProjectMemberRemoved(
+    uint _projectID,
+    address _member,
+    address _sender
+  );
+
+  /// @dev emitted when a new release is created
+  event ReleaseCreated(
+    uint _projectID,
+    uint _releaseID,
+    string _name,
+    string _metaURI, 
+    address _sender
+  );
+
+  /// @dev emitted when a release is approved by a signer
+  event ReleaseApproved(
+    uint _releaseID,
+    address _sender
+  );
+
+  /// @dev emitted when a release approval is revoked by a signer.
+  event ReleaseRevoked(
+    uint _releaseID,
+    address _sender
+  );
+
+  struct Account {
     address beneficiary;
-    string[] projectNames;
     EnumerableSet.AddressSet members;
   }
 
   struct Project {
-    string[] releaseNames;
+    uint accountID;
     EnumerableSet.AddressSet members;
   }
 
   struct Release {
-    EnumerableSet.AddressSet approvers;
-    EnumerableSet.AddressSet rejectors;
+    uint projectID;
+    EnumerableSet.AddressSet signers;
   }
 
-  /// @dev list of all team names
-  string[] private teamNames;
-
-  /// @dev teamID = keccak256(abi.encodePacked(block.chainId, keccak256(bytes(teamName))))
-  mapping(uint256 => Team) private teamByID;
-  /// @dev projectID = keccak256(abi.encodePacked(teamID, keccak256(bytes(projectName))))
-  mapping(uint256 => Project) private projectByID;
-  /// @dev releaseID = keccak256(abi.encodePacked(projectID, keccak256(bytes(releaseName))))
-  mapping(uint256 => Release) private releaseByID;
-  /// @dev mapping of team, project, and release IDs to metadata URIs
-  mapping(uint256 => string) public override metaByID;
+  /// @dev mapping of account ID to account
+  mapping(uint => Account) private accountByID;
+  /// @dev mapping of project ID to project
+  mapping(uint => Project) private projectByID;
+  /// @dev mapping of release ID to release
+  mapping(uint => Release) private releaseByID;
+  /// @dev mapping of account, project, and release ID to meta URI
+  mapping(uint => string) public metaByID;
 
   /// @dev version of BaseRelayRecipient this contract implements
   string public versionRecipient = "2.2.0";
+  /// @dev address of meta transaction forwarder
+  address public trustedForwarder;
+  /// @dev account name claim fee
+  uint public claimFee;
 
   /// Creates a Valist registry.
   ///
   /// @param _trustedForwarder Address for meta transactions.
-  constructor(address _trustedForwarder) ERC2771Context(_trustedForwarder) {}
+  constructor(address _trustedForwarder) {
+    trustedForwarder = _trustedForwarder;
+  }
 
-  /// Creates a new team with the given members.
+  /// Creates an account with the given members and beneficiary.
   ///
-  /// @param _teamName Unique name used to identify the team.
-  /// @param _metaURI URI of the team metadata.
-  /// @param _beneficiary Beneficiary address of the team for recieving payments.
-  /// @param _members List of members to add to the team.
-  function createTeam(
-    string memory _teamName,
+  /// @param _name Unique name used to identify the account.
+  /// @param _metaURI URI of the account metadata.
+  /// @param _beneficiary Beneficiary address for recieving payments.
+  /// @param _members List of members to add to the account.
+  function createAccount(
+    string memory _name,
     string memory _metaURI,
     address _beneficiary,
     address[] memory _members
-  ) 
+  )
     public
-    override
+    payable
   {
+    require(msg.value >= claimFee, "err-value");
     require(bytes(_metaURI).length > 0, "err-empty-meta");
-    require(bytes(_teamName).length > 0, "err-empty-name");
+    require(bytes(_name).length > 0, "err-empty-name");
     require(_members.length > 0, "err-empty-members");
 
-    uint256 teamID = getTeamID(_teamName);
+    uint accountID = generateID(block.chainid, _name);
+    require(bytes(metaByID[accountID]).length == 0, "err-name-claimed");
 
-    require(bytes(metaByID[teamID]).length == 0, "err-name-claimed");
-
-    metaByID[teamID] = _metaURI;
-    teamNames.push(_teamName);
-
-    teamByID[teamID].beneficiary = _beneficiary;
-
-    // emit first so the TeamMemberAdded event comes after
-    emit TeamCreated(_teamName, _metaURI, _msgSender());
+    metaByID[accountID] = _metaURI;
+    accountByID[accountID].beneficiary = _beneficiary;
+    emit AccountCreated(accountID, _name, _metaURI, _beneficiary, _msgSender());
 
     for (uint i = 0; i < _members.length; ++i) {
-      teamByID[teamID].members.add(_members[i]);
-      emit TeamMemberAdded(_teamName, _members[i], _msgSender());
+      accountByID[accountID].members.add(_members[i]);
+      emit AccountMemberAdded(accountID, _members[i], _msgSender());
     }
   }
   
-  /// Creates a new project. Requires the sender to be a member of the team.
+  /// Creates a new project. Requires the sender to be a member of the account.
   ///
-  /// @param _teamName Name of the team to create the project under.
-  /// @param _projectName Unique name used to identify the project.
+  /// @param _accountID ID of the account to create the project under.
+  /// @param _name Unique name used to identify the project.
   /// @param _metaURI URI of the project metadata.
   /// @param _members Optional list of members to add to the project.
   function createProject(
-    string memory _teamName, 
-    string memory _projectName,
+    uint _accountID,
+    string memory _name,
     string memory _metaURI,
     address[] memory _members
   )
     public
-    override
   {
     require(bytes(_metaURI).length > 0, "err-empty-meta");
-    require(bytes(_projectName).length > 0, "err-empty-name");
+    require(bytes(_name).length > 0, "err-empty-name");
 
-    uint256 teamID = getTeamID(_teamName);
-    uint256 projectID = getProjectID(teamID, _projectName);
-
-    require(isTeamMember(teamID, _msgSender()), "err-team-member");
+    uint projectID = generateID(_accountID, _name);
+    require(isAccountMember(_accountID, _msgSender()), "err-not-member");
     require(bytes(metaByID[projectID]).length == 0, "err-name-claimed");
 
     metaByID[projectID] = _metaURI;
-    teamByID[teamID].projectNames.push(_projectName);
-
-    // emit first so the ProjectMemberAdded event comes after
-    emit ProjectCreated(_teamName, _projectName, _metaURI, _msgSender());
+    projectByID[projectID].accountID = _accountID;
+    emit ProjectCreated(_accountID, projectID, _name, _metaURI, _msgSender());
 
     for (uint i = 0; i < _members.length; ++i) {
       projectByID[projectID].members.add(_members[i]);
-      emit ProjectMemberAdded(_teamName, _projectName, _members[i], _msgSender());
+      emit ProjectMemberAdded(projectID, _members[i], _msgSender());
     }
   }
 
   /// Creates a new release. Requires the sender to be a member of the project.
   ///
-  /// @param _teamName Name of the team.
-  /// @param _projectName Name of the project.
-  /// @param _releaseName Unique name used to identify the release.
+  /// @param _projectID ID of the project create the release under.
+  /// @param _name Unique name used to identify the release.
   /// @param _metaURI URI of the project metadata.
   function createRelease(
-    string memory _teamName, 
-    string memory _projectName,
-    string memory _releaseName,
+    uint _projectID,
+    string memory _name,
     string memory _metaURI
   )
     public
-    override
   {
+    require(bytes(_name).length > 0, "err-empty-name");
     require(bytes(_metaURI).length > 0, "err-empty-meta");
-    require(bytes(_projectName).length > 0, "err-empty-name");
-    require(bytes(_releaseName).length > 0, "err-empty-name");
+    require(bytes(metaByID[_projectID]).length > 0, "err-not-exist");
 
-    uint256 teamID = getTeamID(_teamName);
-    uint256 projectID = getProjectID(teamID, _projectName);
-    uint256 releaseID = getReleaseID(projectID, _releaseName);
-
-    require(
-      isTeamMember(teamID, _msgSender()) ||
-      isProjectMember(projectID, _msgSender()),
-      "err-proj-member"
-    );
-
+    uint releaseID = generateID(_projectID, _name);
     require(bytes(metaByID[releaseID]).length == 0, "err-name-claimed");
 
+    uint accountID = getProjectAccountID(_projectID);
+    require(
+      isProjectMember(_projectID, _msgSender()) ||
+      isAccountMember(accountID, _msgSender()),
+      "err-not-member"
+    );
+
     metaByID[releaseID] = _metaURI;
-    projectByID[projectID].releaseNames.push(_releaseName);
-    emit ReleaseCreated(_teamName, _projectName, _releaseName, _metaURI, _msgSender());
+    releaseByID[releaseID].projectID = _projectID;
+    emit ReleaseCreated(_projectID, releaseID, _name, _metaURI, _msgSender());
   }
 
   /// Approve the release by adding the sender's address to the approvers list.
-  /// The sender's address will be removed from the rejectors list if it exists.
   ///
-  /// @param _teamName Name of the team.
-  /// @param _projectName Name of the project.
-  /// @param _releaseName Name of the release.
-  function approveRelease(
-    string memory _teamName, 
-    string memory _projectName,
-    string memory _releaseName
-  )
-    public
-    override
-  {
-    uint256 teamID = getTeamID(_teamName);
-    uint256 projectID = getProjectID(teamID, _projectName);
-    uint256 releaseID = getReleaseID(projectID, _releaseName);
+  /// @param _releaseID ID of the release.
+  function approveRelease(uint _releaseID) public {
+    require(bytes(metaByID[_releaseID]).length > 0, "err-not-exist");
+    require(!releaseByID[_releaseID].signers.contains(_msgSender()), "err-member-exist");
 
-    require(bytes(metaByID[releaseID]).length > 0, "err-release-not-exist");
-    require(!releaseByID[releaseID].approvers.contains(_msgSender()), "err-member-exist");
-
-    releaseByID[releaseID].approvers.add(_msgSender());
-    releaseByID[releaseID].rejectors.remove(_msgSender());
-    emit ReleaseApproved(_teamName, _projectName, _releaseName, _msgSender());
+    releaseByID[_releaseID].signers.add(_msgSender());
+    emit ReleaseApproved(_releaseID, _msgSender());
   }
 
-  /// Reject the release by adding the sender's address to the rejectors list.
-  /// The sender's address will be removed from the approvers list if it exists.
+  /// Revoke a release signature by removing the sender's address from the approvers list.
   ///
-  /// @param _teamName Name of the team.
-  /// @param _projectName Name of the project.
-  /// @param _releaseName Name of the release.
-  function rejectRelease(
-    string memory _teamName, 
-    string memory _projectName,
-    string memory _releaseName
-  ) 
-    public
-    override 
-  {
-    uint256 teamID = getTeamID(_teamName);
-    uint256 projectID = getProjectID(teamID, _projectName);
-    uint256 releaseID = getReleaseID(projectID, _releaseName);
+  /// @param _releaseID ID of the release.
+  function revokeRelease(uint _releaseID) public {
+    require(bytes(metaByID[_releaseID]).length > 0, "err-not-exist");
+    require(releaseByID[_releaseID].signers.contains(_msgSender()), "err-member-exist");
 
-    require(bytes(metaByID[releaseID]).length > 0, "err-release-not-exist");
-    require(!releaseByID[releaseID].rejectors.contains(_msgSender()), "err-member-exist");
-
-    releaseByID[releaseID].rejectors.add(_msgSender());
-    releaseByID[releaseID].approvers.remove(_msgSender());
-    emit ReleaseRejected(_teamName, _projectName, _releaseName, _msgSender());
+    releaseByID[_releaseID].signers.remove(_msgSender());
+    emit ReleaseRevoked(_releaseID, _msgSender());
   }
 
-  /// Add a member to the team. Requires the sender to be a member of the team.
+  /// Add a member to the account. Requires the sender to be a member of the account.
   ///
-  /// @param _teamName Name of the team.
+  /// @param _accountID ID of the account.
   /// @param _address Address of member.
-  function addTeamMember(string memory _teamName, address _address) public override {
-    uint256 teamID = uint(keccak256(abi.encodePacked(block.chainid, keccak256(bytes(_teamName)))));
+  function addAccountMember(uint _accountID, address _address) public {
+    require(isAccountMember(_accountID, _msgSender()), "err-not-member");
+    require(!isAccountMember(_accountID, _address), "err-member-exist");
+
+    accountByID[_accountID].members.add(_address);
+    emit AccountMemberAdded(_accountID, _address, _msgSender());
+  }
+
+  /// Remove a member from the account. Requires the sender to be a member of the account.
+  ///
+  /// @param _accountID ID of the account.
+  /// @param _address Address of member.
+  function removeAccountMember(uint _accountID, address _address) public {
+    require(isAccountMember(_accountID, _msgSender()), "err-not-member");
+    require(isAccountMember(_accountID, _address), "err-member-not-exist");
+
+    accountByID[_accountID].members.remove(_address);
+    emit AccountMemberRemoved(_accountID, _address, _msgSender());
+  }
+
+  /// Add a member to the project. Requires the sender to be a member of the parent account.
+  ///
+  /// @param _projectID ID of the project.
+  /// @param _address Address of member.
+  function addProjectMember(uint _projectID, address _address) public {
+    require(bytes(metaByID[_projectID]).length > 0, "err-not-exist");
+    require(!isProjectMember(_projectID, _address), "err-member-exist");
+
+    uint accountID = getProjectAccountID(_projectID);
+    require(isAccountMember(accountID, _msgSender()), "err-not-member");
+
+    projectByID[_projectID].members.add(_address);
+    emit ProjectMemberAdded(_projectID, _address, _msgSender());
+  }
+
+  /// Remove a member from the project. Requires the sender to be a member of the parent account.
+  ///
+  /// @param _projectID ID of the project.
+  /// @param _address Address of member.
+  function removeProjectMember(uint _projectID, address _address) public {
+    require(bytes(metaByID[_projectID]).length > 0, "err-not-exist");
+    require(isProjectMember(_projectID, _address), "err-member-not-exist"); 
+
+    uint accountID = getProjectAccountID(_projectID);
+    require(isAccountMember(accountID, _msgSender()), "err-not-member");
+
+    projectByID[_projectID].members.remove(_address);
+    emit ProjectMemberRemoved(_projectID, _address, _msgSender());   
+  }
+
+  /// Set account beneficiary address for recieving payments.
+  ///
+  /// @param _accountID Unique ID of the account.
+  /// @param _beneficiary Address of beneficiary.
+  function setBeneficiary(uint _accountID, address _beneficiary) public {
+    require(isAccountMember(_accountID, _msgSender()), "err-not-member");
     
-    require(teamByID[teamID].members.contains(_msgSender()) == true, "err-team-member");
-    require(teamByID[teamID].members.contains(_address) == false, "err-member-exist");
-
-    teamByID[teamID].members.add(_address);
-    emit TeamMemberAdded(_teamName, _address, _msgSender());
+    accountByID[_accountID].beneficiary = _beneficiary;
+    emit BeneficiaryUpdated(_accountID, _beneficiary, _msgSender());
   }
 
-  /// Remove a member from the team. Requires the sender to be a member of the team.
+  /// Sets the account metadata URI. Requires the sender to be a member of the account.
   ///
-  /// @param _teamName Name of the team.
-  /// @param _address Address of member.
-  function removeTeamMember(string memory _teamName, address _address) public override {
-    uint256 teamID = uint(keccak256(abi.encodePacked(block.chainid, keccak256(bytes(_teamName)))));
-
-    require(teamByID[teamID].members.contains(_msgSender()) == true, "err-team-member");
-    require(teamByID[teamID].members.contains(_address) == true, "err-member-not-exist");
-
-    teamByID[teamID].members.remove(_address);
-    emit TeamMemberRemoved(_teamName, _address, _msgSender());
-  }
-
-  /// Set team beneficiary address for recieving payments.
-  ///
-  /// @param _teamID Unique ID of the team.
-  /// @param _newBeneficiary Address of new beneficiary address.
-  function setTeamBeneficiary(
-        uint256 _teamID,
-        address _newBeneficiary
-    )
-        public
-        override
-    {
-        require(isTeamMember(_teamID, _msgSender()), "err-team-member");
-        address _oldBeneficiary = teamByID[_teamID].beneficiary;
-        teamByID[_teamID].beneficiary = _newBeneficiary;
-        emit TeamBeneficiaryUpdated(_teamID, _oldBeneficiary, _newBeneficiary, _msgSender());
-    }
-
-  /// Add a member to the project. Requires the sender to be a member of the team.
-  ///
-  /// @param _teamName Name of the team.
-  /// @param _projectName Name of the project.
-  /// @param _address Address of member.
-  function addProjectMember(
-    string memory _teamName, 
-    string memory _projectName, 
-    address _address
-  )
-    public
-    override
-  {
-    uint256 teamID = getTeamID(_teamName);
-    uint256 projectID = getProjectID(teamID, _projectName);
-    
-    require(bytes(metaByID[projectID]).length > 0, "err-proj-not-exist");
-    require(teamByID[teamID].members.contains(_msgSender()) == true, "err-team-member");
-    require(projectByID[projectID].members.contains(_address) == false, "err-member-exist");
-
-    projectByID[projectID].members.add(_address);
-    emit ProjectMemberAdded(_teamName, _projectName, _address, _msgSender());
-  }
-
-  /// Remove a member from the project. Requires the sender to be a member of the team.
-  ///
-  /// @param _teamName Name of the team.
-  /// @param _projectName Name of the project.
-  /// @param _address Address of member.
-  function removeProjectMember(
-    string memory _teamName, 
-    string memory _projectName, 
-    address _address
-  )
-    public
-    override
-  {
-    uint256 teamID = getTeamID(_teamName);
-    uint256 projectID = getProjectID(teamID, _projectName);
-    
-    require(bytes(metaByID[projectID]).length > 0, "err-proj-not-exist");
-    require(teamByID[teamID].members.contains(_msgSender()) == true, "err-team-member");
-    require(projectByID[projectID].members.contains(_address) == true, "err-member-not-exist"); 
-
-    projectByID[projectID].members.remove(_address);
-    emit ProjectMemberRemoved(_teamName, _projectName, _address, _msgSender());   
-  }
-
-  /// Sets the team metadata URI. Requires the sender to be a member of the team.
-  ///
-  /// @param _teamName Name of the team.
+  /// @param _accountID ID of the account.
   /// @param _metaURI Metadata URI.
-  function setTeamMetaURI(
-    string memory _teamName,
-    string memory _metaURI
-  )
-    public
-    override
-  {
+  function setAccountMetaURI(uint _accountID, string memory _metaURI) public {
     require(bytes(_metaURI).length > 0, "err-empty-meta");
+    require(isAccountMember(_accountID, _msgSender()), "err-not-member");
+    require(bytes(metaByID[_accountID]).length > 0, "err-not-exist");
 
-    uint256 teamID = uint(keccak256(abi.encodePacked(block.chainid, keccak256(bytes(_teamName)))));
-
-    require(teamByID[teamID].members.contains(_msgSender()), "err-team-member");
-    require(bytes(metaByID[teamID]).length > 0, "err-team-not-exist");
-
-    metaByID[teamID] = _metaURI;
-    emit TeamUpdated(_teamName, _metaURI, _msgSender());
+    metaByID[_accountID] = _metaURI;
+    emit AccountUpdated(_accountID, _metaURI, _msgSender());
   }
 
-  /// Sets the project metadata URI. Requires the sender to be a member of the team.
+  /// Sets the project metadata URI. Requires the sender to be a member of the parent account.
   ///
-  /// @param _teamName Name of the team.
-  /// @param _projectName Name of the project.
+  /// @param _projectID ID of the project.
   /// @param _metaURI Metadata URI.
-  function setProjectMetaURI(
-    string memory _teamName,
-    string memory _projectName,
-    string memory _metaURI
-  )
-    public
-    override
-  {
+  function setProjectMetaURI(uint _projectID, string memory _metaURI) public {
     require(bytes(_metaURI).length > 0, "err-empty-meta");
+    require(bytes(metaByID[_projectID]).length > 0, "err-not-exist");
 
-    uint256 teamID = getTeamID(_teamName);
-    uint256 projectID = getProjectID(teamID, _projectName);
+    uint accountID = getProjectAccountID(_projectID);
+    require(isAccountMember(accountID, _msgSender()), "err-not-member");
 
-    require(teamByID[teamID].members.contains(_msgSender()), "err-team-member");
-    require(bytes(metaByID[projectID]).length > 0, "err-proj-not-exist");
-
-    metaByID[projectID] = _metaURI;
-    emit ProjectUpdated(_teamName, _projectName, _metaURI, _msgSender());
+    metaByID[_projectID] = _metaURI;
+    emit ProjectUpdated(_projectID, _metaURI, _msgSender());
   }
 
-  /// Generates teamID from teamName.
+  /// Generates account, project, or release ID.
   ///
-  /// @param _teamName Name of the team.
-  function getTeamID(
-    string memory _teamName
-  )
-    public
-    view
-    override
-    returns (uint)
-  {
-    return uint(keccak256(abi.encodePacked(block.chainid, keccak256(bytes(_teamName)))));
+  /// @param _parentID ID of the parent account or project. Use `block.chainid` for accounts.
+  /// @param _name Name of the account, project, or release.
+  function generateID(uint _parentID, string memory _name) public pure returns (uint) {
+    return uint(keccak256(abi.encodePacked(_parentID, keccak256(bytes(_name)))));
   }
 
-  /// Fetches team beneficiary address.
+  /// Returns whether a given address is a member of an account.
   ///
-  /// @param _teamID Unique ID of the team.
-  function getTeamBeneficiary(
-    uint256 _teamID
-  )
-    public
-    view
-    override
-    returns (address)
-  {
-    return teamByID[_teamID].beneficiary;
-  }
-
-  /// Generates projectID from teamID and projectName.
-  ///
-  /// @param _teamID Unique team ID.
-  /// @param _projectName Name of the project.
-  function getProjectID(
-    uint _teamID,
-    string memory _projectName
-  )
-    public
-    pure
-    override
-    returns (uint)
-  {
-    return uint(keccak256(abi.encodePacked(_teamID, keccak256(bytes(_projectName)))));
-  }
-
-  /// Generates releaseID from projectID and releaseName.
-  ///
-  /// @param _projectID Unique project ID.
-  /// @param _releaseName Name of the release.
-  function getReleaseID(
-    uint _projectID,
-    string memory _releaseName
-  )
-    public
-    pure
-    override
-    returns (uint)
-  {
-    return uint(keccak256(abi.encodePacked(_projectID, keccak256(bytes(_releaseName)))));
-  }
-
-  /// Returns whether a given address is a member of a team.
-  ///
-  /// @param _teamID Unique team ID.
+  /// @param _accountID ID of the account.
   /// @param _member Address of member.
-  function isTeamMember(
-    uint _teamID,
-    address _member
-  )
-    public
-    view
-    override
-    returns (bool)
-  {
-    return teamByID[_teamID].members.contains(_member);
+  function isAccountMember(uint _accountID, address _member) public view returns (bool) {
+    return accountByID[_accountID].members.contains(_member);
   }
 
   /// Returns whether a given address is a member of a project.
   ///
   /// @param _projectID Unique project ID.
   /// @param _member Address of member.
-  function isProjectMember(
-    uint _projectID,
-    address _member
-  )
-    public
-    view
-    override
-    returns (bool)
-  {
+  function isProjectMember(uint _projectID, address _member) public view returns (bool) {
     return projectByID[_projectID].members.contains(_member);
   }
 
-  /// Returns the team metadata URI.
+  /// Returns a list of account members.
   ///
-  /// @param _teamName Name of the team.
-  function getTeamMetaURI(
-    string memory _teamName
-  )
-    public
-    view
-    override
-    returns (string memory)
-  {
-    uint256 teamID = uint(keccak256(abi.encodePacked(block.chainid, keccak256(bytes(_teamName)))));
-    require(bytes(metaByID[teamID]).length > 0, "err-team-not-exist");
-    return metaByID[teamID];
+  /// @param _accountID ID of the account.
+  function getAccountMembers(uint _accountID) public view returns (address[] memory) {
+    return accountByID[_accountID].members.values();
   }
 
-  /// Returns the project metadata URI.
+  /// Returns a list of project members.
   ///
-  /// @param _teamName Name of the team.
-  /// @param _projectName Name of the project.
-  function getProjectMetaURI(
-    string memory _teamName,
-    string memory _projectName
-  )
-    public
-    view
-    override
-    returns (string memory)
-  {
-    uint256 teamID = getTeamID(_teamName);
-    uint256 projectID = getProjectID(teamID, _projectName);
-    require(bytes(metaByID[projectID]).length > 0, "err-proj-not-exist");
-    return metaByID[projectID];
+  /// @param _projectID ID of the project.
+  function getProjectMembers(uint _projectID) public view returns (address[] memory) {
+    return projectByID[_projectID].members.values();
   }
 
-  /// Returns the release metadata URI.
+  /// Returns a list of release signers.
   ///
-  /// @param _teamName Name of the team.
-  /// @param _projectName Name of the project.
-  /// @param _releaseName Name of the release.
-  function getReleaseMetaURI(
-    string memory _teamName,
-    string memory _projectName,
-    string memory _releaseName
-  )
-    public
-    view
-    override
-    returns (string memory)
-  {
-    uint256 teamID = getTeamID(_teamName);
-    uint256 projectID = getProjectID(teamID, _projectName);
-    uint256 releaseID = getReleaseID(projectID, _releaseName);
-    require(bytes(metaByID[releaseID]).length > 0, "err-release-not-exist");
-    return metaByID[releaseID];
+  /// @param _releaseID ID of the release.
+  function getReleaseSigners(uint _releaseID) public view returns (address[] memory) {
+    return releaseByID[_releaseID].signers.values();
   }
 
-  /// Returns the latest release name.
+  /// Returns account beneficiary address.
   ///
-  /// @param _teamName Name of the team.
-  /// @param _projectName Name of the project.
-  function getLatestReleaseName(
-    string memory _teamName,
-    string memory _projectName
-  )
-    public
-    view
-    override
-    returns (string memory)
-  {
-    uint256 teamID = getTeamID(_teamName);
-    uint256 projectID = getProjectID(teamID, _projectName);
-    Project storage project = projectByID[projectID];
-    require(project.releaseNames.length > 0, "err-proj-not-exist");
-    return project.releaseNames[project.releaseNames.length - 1];
+  /// @param _accountID Unique ID of the account.
+  function getBeneficiary(uint _accountID) public view returns (address) {
+    return accountByID[_accountID].beneficiary;
   }
 
-  /// Returns a paginated list of team names.
+  /// Returns the parent account ID for the project.
   ///
-  /// @param _page Page to return items from.
-  /// @param _size Number of items to return.
-  function getTeamNames(
-    uint _page,
-    uint _size
-  )
-    public
-    view
-    override
-    returns (string[] memory)
-  {
-    uint start = _page * _size;
-    uint limit = start + _size;
-
-    if (limit > teamNames.length) {
-      limit = teamNames.length;
-    }
-    
-    string[] memory values = new string[](limit - start);
-    for (uint i = start; i < limit; ++i) {
-      values[i - start] = teamNames[i];
-    }
-    
-    return values;
+  /// @param _projectID ID of the project.
+  function getProjectAccountID(uint _projectID) public view returns (uint) {
+    return projectByID[_projectID].accountID;
   }
 
-  /// Returns a paginated list of project names.
-  ///
-  /// @param _teamName Name of the team.
-  /// @param _page Page to return items from.
-  /// @param _size Number of items to return.
-  function getProjectNames(
-    string memory _teamName, 
-    uint _page, 
-    uint _size
-  ) 
-    public
-    view
-    override
-    returns (string[] memory)
-  {
-    uint256 teamID = uint(keccak256(abi.encodePacked(block.chainid, keccak256(bytes(_teamName)))));
-
-    uint start = _page * _size;
-    uint limit = start + _size;
-
-    if (limit > teamByID[teamID].projectNames.length) {
-      limit = teamByID[teamID].projectNames.length;
-    }
-
-    string[] memory values = new string[](limit - start);
-    for (uint i = start; i < limit; ++i) {
-      values[i - start] = teamByID[teamID].projectNames[i];
-    }
-
-    return values;
+  /// Returns the parent project ID for the release.
+  /// 
+  /// @param _releaseID ID of the release.
+  function getReleaseProjectID(uint _releaseID) public view returns (uint) {
+    return releaseByID[_releaseID].projectID;
   }
 
-  /// Returns a paginated list of team members.
+  /// Sets the account claim fee. Owner only.
   ///
-  /// @param _teamName Name of the team.
-  /// @param _page Page to return items from.
-  /// @param _size Number of items to return.
-  function getTeamMembers(
-    string memory _teamName, 
-    uint _page, 
-    uint _size
-  ) 
-    public
-    view
-    override
-    returns (address[] memory)
-  {
-    uint256 teamID = uint(keccak256(abi.encodePacked(block.chainid, keccak256(bytes(_teamName)))));
-
-    uint start = _page * _size;
-    uint limit = start + _size;
-
-    if (limit > teamByID[teamID].members.length()) {
-      limit = teamByID[teamID].members.length();
-    }
-
-    address[] memory values = new address[](limit - start);
-    for (uint i = start; i < limit; ++i) {
-      values[i - start] = teamByID[teamID].members.at(i);
-    }
-
-    return values;
+  /// @param _claimFee Claim fee amount in wei.
+  function setClaimFee(uint _claimFee) public onlyOwner {
+    claimFee = _claimFee;
   }
 
-  /// Returns a paginated list of project members.
+  /// Sets the trusted forward address. Owner only.
   ///
-  /// @param _teamName Name of the team.
-  /// @param _projectName Name of the project.
-  /// @param _page Page to return items from.
-  /// @param _size Number of items to return.
-  function getProjectMembers(
-    string memory _teamName,
-    string memory _projectName,
-    uint _page,
-    uint _size
-  )
-    public
-    view
-    override
-    returns (address[] memory)
-  {
-    uint256 teamID = getTeamID(_teamName);
-    uint256 projectID = getProjectID(teamID, _projectName);
-
-    uint start = _page * _size;
-    uint limit = start + _size;
-
-    if (limit > projectByID[projectID].members.length()) {
-      limit = projectByID[projectID].members.length();
-    }
-
-    address[] memory values = new address[](limit - start);
-    for (uint i = start; i < limit; ++i) {
-      values[i - start] = projectByID[projectID].members.at(i);
-    }
-
-    return values;
+  /// @param _trustedForwarder Addresss of meta transcation forwarder.
+  function setTrustedForwarder(address _trustedForwarder) public onlyOwner {
+    trustedForwarder = _trustedForwarder;
   }
 
-  /// Returns a paginated list of release names.
+  /// Returns true of if the address is the trusted forwarder.
   ///
-  /// @param _teamName Name of the team.
-  /// @param _projectName Name of the project.
-  /// @param _page Page to return items from.
-  /// @param _size Number of items to return.
-  function getReleaseNames(
-    string memory _teamName,
-    string memory _projectName,
-    uint _page,
-    uint _size
-  )
-    public
-    view
-    override
-    returns (string[] memory)
-  {
-    uint256 teamID = getTeamID(_teamName);
-    uint256 projectID = getProjectID(teamID, _projectName);
-
-    uint start = _page * _size;
-    uint limit = start + _size;
-
-    if (limit > projectByID[projectID].releaseNames.length) {
-      limit = projectByID[projectID].releaseNames.length;
-    }
-    
-    string[] memory values = new string[](limit - start);
-    for (uint i = start; i < limit; ++i) {
-      values[i - start] = projectByID[projectID].releaseNames[i];
-    }
-    
-    return values;
+  /// @param _forwarder Address to check.
+  function isTrustedForwarder(address _forwarder) public view returns (bool) {
+    return _forwarder == trustedForwarder;
   }
 
-  /// Returns a paginated list of release approvers.
-  ///
-  /// @param _teamName Name of the team.
-  /// @param _projectName Name of the project.
-  /// @param _releaseName Name of the release.
-  /// @param _page Page to return items from.
-  /// @param _size Number of items to return.
-  function getReleaseApprovers(
-    string memory _teamName,
-    string memory _projectName,
-    string memory _releaseName,
-    uint _page,
-    uint _size
-  )
-    public
-    view
-    override
-    returns (address[] memory)
-  {
-    uint256 teamID = getTeamID(_teamName);
-    uint256 projectID = getProjectID(teamID, _projectName);
-    uint256 releaseID = getReleaseID(projectID, _releaseName);
-
-    uint start = _page * _size;
-    uint limit = start + _size;
-
-    if (limit > releaseByID[releaseID].approvers.length()) {
-      limit = releaseByID[releaseID].approvers.length();
+  function _msgSender() internal virtual override view returns (address sender) {
+    if (isTrustedForwarder(msg.sender)) {
+      // The assembly code is more direct than the Solidity version using `abi.decode`.
+      assembly {
+        sender := shr(96, calldataload(sub(calldatasize(), 20)))
+      }
+    } else {
+      return super._msgSender();
     }
-
-    address[] memory values = new address[](limit - start);
-    for (uint i = start; i < limit; ++i) {
-      values[i - start] = releaseByID[releaseID].approvers.at(i);
-    }
-    
-    return values;
   }
 
-  /// Returns a paginated list of release rejectors.
-  ///
-  /// @param _teamName Name of the team.
-  /// @param _projectName Name of the project.
-  /// @param _releaseName Name of the release.
-  /// @param _page Page to return items from.
-  /// @param _size Number of items to return.
-  function getReleaseRejectors(
-    string memory _teamName,
-    string memory _projectName,
-    string memory _releaseName,
-    uint _page,
-    uint _size
-  )
-    public
-    view
-    override
-    returns (address[] memory)
-  {
-    uint256 teamID = getTeamID(_teamName);
-    uint256 projectID = getProjectID(teamID, _projectName);
-    uint256 releaseID = getReleaseID(projectID, _releaseName);
-
-    uint start = _page * _size;
-    uint limit = start + _size;
-
-    if (limit > releaseByID[releaseID].rejectors.length()) {
-      limit = releaseByID[releaseID].rejectors.length();
+  function _msgData() internal virtual override view returns (bytes calldata) {
+    if (isTrustedForwarder(msg.sender)) {
+      return msg.data[:msg.data.length - 20];
+    } else {
+      return super._msgData();
     }
-    
-    address[] memory values = new address[](limit - start);
-    for (uint i = start; i < limit; ++i) {
-      values[i - start] = releaseByID[releaseID].rejectors.at(i);
-    }
-    
-    return values;
   }
 }
