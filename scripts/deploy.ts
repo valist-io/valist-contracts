@@ -1,25 +1,20 @@
-const hre = require("hardhat");
+import { ethers } from 'hardhat';
 
 // Change this when deploying to other live networks
-const biconomyForwarderAddress = "0x9399BB24DBB5C4b782C70c2969F58716Ebbd6a3b";
+const forwarderAddress = "0x0000000000000000000000000000000000000000";
 
 async function main() {
-  const Valist = await hre.ethers.getContractFactory("Valist");
-  const valist = await Valist.deploy(
-    biconomyForwarderAddress,
-  );
+  const Registry = await ethers.getContractFactory("Registry");
+  const License = await ethers.getContractFactory("License");
 
-  await valist.deployed();
-  console.log("Valist deployed to:", valist.address);
+  const registry = await Registry.deploy(forwarderAddress);
+  await registry.deployed();
 
-  const License = await hre.ethers.getContractFactory("SoftwareLicense");
-  const license = await License.deploy(
-    valist.address,
-    biconomyForwarderAddress,
-  );
-
+  const license = await License.deploy(registry.address);
   await license.deployed();
-  console.log("SoftwareLicense deployed to:", license.address);
+
+  console.log("Registry deployed to:", registry.address);
+  console.log("License deployed to:", license.address);
 }
 
 main()

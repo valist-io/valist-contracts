@@ -165,8 +165,6 @@ contract Registry is BaseRelayRecipient {
     require(bytes(_name).length > 0, "err-empty-name");
     require(_members.length > 0, "err-empty-members");
 
-    Address.sendValue(owner, msg.value);
-
     uint accountID = generateID(block.chainid, _name);
     require(bytes(metaByID[accountID]).length == 0, "err-name-claimed");
 
@@ -178,6 +176,8 @@ contract Registry is BaseRelayRecipient {
       accountByID[accountID].members.add(_members[i]);
       emit AccountMemberAdded(accountID, _members[i], _msgSender());
     }
+
+    Address.sendValue(owner, msg.value);
   }
   
   /// Creates a new project. Requires the sender to be a member of the account.
