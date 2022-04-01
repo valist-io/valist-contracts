@@ -679,9 +679,8 @@ describe("generateID", () => {
 });
 
 export async function deployContract() {
-  const zeroAddress = "0x0000000000000000000000000000000000000000";
   const factory = await ethers.getContractFactory("Registry");
-  const contract = await factory.deploy(zeroAddress, zeroAddress);
+  const contract = await factory.deploy("0x0000000000000000000000000000000000000000");
   
   await contract.deployed();
   return contract;

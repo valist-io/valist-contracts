@@ -133,19 +133,15 @@ contract Registry is BaseRelayRecipient {
   /// @dev version of BaseRelayRecipient this contract implements
   string public override versionRecipient = "2.2.3";
   /// @dev address of contract owner
-  address public owner;
-  /// @dev address of treasury to send funds to
-  address payable public treasury;
+  address payable public owner;
   /// @dev account name claim fee
   uint public claimFee;
 
   /// Creates a Valist Registry contract.
   ///
   /// @param _forwarder Address of meta transaction forwarder.
-  /// @param _treasury Address of the treasury for receiving funds.
-  constructor(address _forwarder, address payable _treasury) {
-    owner = msg.sender;
-    treasury = _treasury;
+  constructor(address _forwarder) {
+    owner = payable(msg.sender);
     _setTrustedForwarder(_forwarder);
   }
 
@@ -169,7 +165,7 @@ contract Registry is BaseRelayRecipient {
     require(bytes(_name).length > 0, "err-empty-name");
     require(_members.length > 0, "err-empty-members");
 
-    Address.sendValue(treasury, msg.value);
+    Address.sendValue(owner, msg.value);
 
     uint accountID = generateID(block.chainid, _name);
     require(bytes(metaByID[accountID]).length == 0, "err-name-claimed");
@@ -438,7 +434,7 @@ contract Registry is BaseRelayRecipient {
   /// Sets the owner address. Owner only.
   ///
   /// @param _owner Address of the new owner.
-  function setOwner(address _owner) public onlyOwner {
+  function setOwner(address payable _owner) public onlyOwner {
     owner = _owner;
   }
 
@@ -447,13 +443,6 @@ contract Registry is BaseRelayRecipient {
   /// @param _claimFee Claim fee amount in wei.
   function setClaimFee(uint _claimFee) public onlyOwner {
     claimFee = _claimFee;
-  }
-
-  /// Sets the treasury address. Owner only.
-  ///
-  /// @param _treasury Address of the treasury for receiving funds.
-  function setTreasury(address payable _treasury) public onlyOwner {
-    treasury = _treasury;
   }
 
   /// Sets the trusted forward address. Owner only.
