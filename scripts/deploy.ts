@@ -6,6 +6,7 @@ const forwarderAddress = "0x0000000000000000000000000000000000000000";
 async function main() {
   const Registry = await ethers.getContractFactory("Registry");
   const License = await ethers.getContractFactory("License");
+  const Paymaster = await ethers.getContractFactory("Paymaster");
 
   const registry = await Registry.deploy(forwarderAddress);
   await registry.deployed();
@@ -13,8 +14,15 @@ async function main() {
   const license = await License.deploy(registry.address);
   await license.deployed();
 
+  const paymaster = await Paymaster.deploy();
+  await paymaster.deployed();
+
+  const allowAddressTx = await paymaster.allowAddress(registry.address);
+  await allowAddressTx.wait();
+
   console.log("Registry deployed to:", registry.address);
   console.log("License deployed to:", license.address);
+  console.log("Paymaster deployed to:", paymaster.address);
 }
 
 main()

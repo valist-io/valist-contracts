@@ -2,11 +2,10 @@ import { ethers } from 'hardhat';
 import * as snapshot from '../assets/snapshot.json';
 
 async function main() {
-  const deployerAddress = '0xF97e3669bC9612d726d7E9FFcEC940FB9c0B070e'; // TODO change
-  const registryAddress = '0x6639d7eD2dCEBa642Ec607a09dD3D8A3E807dA34'; // TODO change
-
+  const signers = await ethers.getSigners();
+  const deployerAddress = signers[0].address;
+  const registryAddress = '0x6639d7eD2dCEBa642Ec607a09dD3D8A3E807dA34';
   const registry = await ethers.getContractAt('Registry', registryAddress);
-  // const { chainId } = await registry.provider.getNetwork();
   console.log('migrating valist registry...');
 
   // create accounts
@@ -20,6 +19,7 @@ async function main() {
     await createAccountTx.wait();
 
     // TODO WHY DOES GANACHE USE CHAIN ID 1 ??????
+    // const { chainId } = await registry.provider.getNetwork();
     const accountID = await registry.generateID(1, team.name);
 
     // create projects
