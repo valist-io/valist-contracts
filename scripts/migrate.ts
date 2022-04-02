@@ -2,39 +2,29 @@ import { ethers } from 'hardhat';
 import * as snapshot from '../assets/snapshot.json';
 
 async function main() {
-  const signers = await ethers.getSigners();
-  const deployerAddress = signers[0].address;
-  const registryAddress = '0x6639d7eD2dCEBa642Ec607a09dD3D8A3E807dA34';
+  const registryAddress = '0xe78A0F7E598Cc8b0Bb87894B0F60dD2a88d6a8Ab';
   const registry = await ethers.getContractAt('Registry', registryAddress);
-  console.log('migrating valist registry...');
 
-  // create accounts
+  const { chainId } = await registry.provider.getNetwork();
+  const deployerAddress = await registry.signer.getAddress();
+
   for (const team of snapshot.data.teams) {
     // add deployer to members so we can create teams and projects
     const teamMembers = team.members.map(m => m.id).concat([deployerAddress]);
     const beneficiary = teamMembers[0]; // TODO missing beneficiary
 
-    console.log('createAccount', team.name);
     const createAccountTx = await registry.createAccount(team.name, team.metaURI, beneficiary, teamMembers);
     await createAccountTx.wait();
 
-    // TODO WHY DOES GANACHE USE CHAIN ID 1 ??????
-    // const { chainId } = await registry.provider.getNetwork();
-    const accountID = await registry.generateID(1, team.name);
-
-    // create projects
+    const accountID = await registry.generateID(chainId, team.name);
     for (const project of team.projects) {
       const projectMembers = project.members.map(m => m.id);
 
-      console.log('createProject', project.name);
       const createProjectTx = await registry.createProject(accountID, project.name, project.metaURI, projectMembers);
       await createProjectTx.wait();
 
       const projectID = await registry.generateID(accountID, project.name);
-
-      // create releases
       for (const release of project.releases) {
-        console.log('createRelease', release.name);
         const createReleaseTx = await registry.createRelease(projectID, release.name, release.metaURI);
         await createReleaseTx.wait();
       }
