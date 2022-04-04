@@ -8,6 +8,8 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title Valist License contract
 contract License is ERC1155 {
+  using SafeERC20 for IERC20;
+
   /// @dev emitted when mint price is changed.
   event PriceChanged(
     uint _projectID,
@@ -50,8 +52,8 @@ contract License is ERC1155 {
   string public name = "Valist Software License";
   /// @dev address of contract owner
   address payable public owner;
-  /// @dev mint fee percentage
-  uint public royaltyBasisPoints;
+  /// @dev royalty basis points
+  uint public royaltyBP;
   /// @dev address of the valist registry
   Registry public registry;
 
@@ -71,9 +73,9 @@ contract License is ERC1155 {
     uint price = productByID[_projectID].price;
 
     require(price > 0, "err-not-allowed");
-    require(msg.value != price, "err-value");
+    require(msg.value == price, "err-value");
 
-    uint royalty = price * royaltyBasisPoints / 10000;
+    uint royalty = price * royaltyBP / 10000;
 
     // increase product balance
     productByID[_projectID].balance += price - royalty;
@@ -92,20 +94,22 @@ contract License is ERC1155 {
   /// @param _recipient Address of the recipient.
   function purchase(IERC20 _token, uint _projectID, address _recipient) public {
     uint price = productByID[_projectID].priceERC20[_token];
+    uint allowance = _token.allowance(_msgSender(), address(this));
 
     require(price > 0, "err-not-allowed");
-    require(_token.balanceOf(_msgSender()) >= price, "err-value");
+    require(allowance >= price, "err-value");
 
-    uint royalty = price * royaltyBasisPoints / 10000;
+    uint royalty = price * royaltyBP / 10000;
 
     // increase product balance
     productByID[_projectID].balanceERC20[_token] += price - royalty;
 
-    // send royalty to owner
-    SafeERC20.safeTransferFrom(_token, _msgSender(), owner, royalty);
+    // transfer tokens
+    _token.safeTransferFrom(_msgSender(), address(this), price);
 
-    // increase product balance
-    SafeERC20.safeTransferFrom(_token, _msgSender(), address(this), price - royalty);
+    // send royalty to owner
+    _token.safeIncreaseAllowance(address(this), royalty);
+    _token.safeTransferFrom(address(this), owner, royalty);
 
     _mint(_recipient, _projectID, 1, "");
     emit ProductPurchased(_projectID, address(_token), price, _recipient, _msgSender());
@@ -166,7 +170,7 @@ contract License is ERC1155 {
     require(balance > 0, "err-balance");
 
     productByID[_projectID].balanceERC20[_token] = 0;
-    SafeERC20.safeTransfer(_token, _recipient, balance);
+    _token.safeTransfer(_recipient, balance);
 
     emit BalanceWithdrawn(_projectID, address(_token), balance, _recipient, _msgSender());
   }
@@ -224,10 +228,10 @@ contract License is ERC1155 {
 
   /// Sets the royalty basis points. Owner only.
   ///
-  /// @param _royaltyBasisPoints Royalty basis points.
-  function setRoyaltyBasisPoints(uint _royaltyBasisPoints) public onlyOwner {
-    require(_royaltyBasisPoints <= 1000, "must be less than 1000 basis points");
-    royaltyBasisPoints = _royaltyBasisPoints;
+  /// @param _royaltyBP Royalty basis points.
+  function setRoyalty(uint _royaltyBP) public onlyOwner {
+    require(_royaltyBP < 10000);
+    royaltyBP = _royaltyBP;
   }
 
   /// Modifier that ensures only the owner can call a function.

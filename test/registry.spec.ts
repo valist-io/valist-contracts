@@ -1,57 +1,58 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
+import { deployRegistry, getAddresses } from "./utils";
 
-describe("createAccount", () => {
+describe("registry.createAccount", () => {
   it("Should emit AccountCreated", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    await expect(contract.createAccount("acme", "Qm", members[0], members))
+    await expect(contract.createAccount("acme", "Qm", members))
       .to.emit(contract, 'AccountCreated');
   });
 
   it("Should fail with claimed name", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
-    await expect(contract.createAccount("acme", "Qm", members[0], members))
+    await expect(contract.createAccount("acme", "Qm", members))
       .to.be.revertedWith('err-name-claimed');
   });
 
   it("Should fail with empty members", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    await expect(contract.createAccount("acme", "Qm", members[0], []))
+    await expect(contract.createAccount("acme", "Qm", []))
       .to.be.revertedWith('err-empty-members');
   });
 
   it("Should fail with empty name", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    await expect(contract.createAccount("", "Qm", members[0], members))
+    await expect(contract.createAccount("", "Qm", members))
       .to.be.revertedWith('err-empty-name');
   });
 
   it("Should fail with empty meta", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
     
-    await expect(contract.createAccount("acme", "", members[0], members))
+    await expect(contract.createAccount("acme", "", members))
       .to.be.revertedWith('err-empty-meta');
   });
 });
 
-describe("createProject", () => {
+describe("registry.createProject", () => {
   it("Should emit ProjectCreated", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -60,10 +61,10 @@ describe("createProject", () => {
   });
 
   it("Should succeed with no members", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -72,10 +73,10 @@ describe("createProject", () => {
   });
 
   it("Should fail with claimed name", async function(){
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -87,10 +88,10 @@ describe("createProject", () => {
   });
 
   it("Should fail with no account member", async function(){
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members.slice(1));
+    const createAccountTx = await contract.createAccount("acme", "Qm", members.slice(1));
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -99,10 +100,10 @@ describe("createProject", () => {
   });
 
   it("Should fail with empty account id", async function(){
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     await expect(contract.createProject(0, "bin", "Qm", []))
@@ -110,10 +111,10 @@ describe("createProject", () => {
   });
 
   it("Should fail with empty project name", async function(){
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -122,10 +123,10 @@ describe("createProject", () => {
   });
 
   it("Should fail with empty meta", async function(){
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -134,12 +135,12 @@ describe("createProject", () => {
   });
 });
 
-describe("createRelease", () => {
+describe("registry.createRelease", () => {
   it("Should emit ReleaseCreated", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -152,10 +153,10 @@ describe("createRelease", () => {
   });
 
   it("Should publish with no project member", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -168,10 +169,10 @@ describe("createRelease", () => {
   });
 
   it("Should fail with claimed name", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -187,10 +188,10 @@ describe("createRelease", () => {
   });
 
   it("Should fail with empty name", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -203,10 +204,10 @@ describe("createRelease", () => {
   });
 
   it("Should fail with invalid project ID", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -218,10 +219,10 @@ describe("createRelease", () => {
   });
 
   it("Should fail with empty meta", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -234,12 +235,12 @@ describe("createRelease", () => {
   });
 });
 
-describe("approveRelease", () => {
+describe("registry.approveRelease", () => {
   it("Should emit ReleaseApproved", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -256,10 +257,10 @@ describe("approveRelease", () => {
   });
 
   it("Should fail with invalid release ID", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -275,12 +276,12 @@ describe("approveRelease", () => {
   });
 });
 
-describe("revokeRelease", () => {
+describe("registry.revokeRelease", () => {
   it("Should emit ReleaseRevoked", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -300,10 +301,10 @@ describe("revokeRelease", () => {
   });
 
   it("Should fail with invalid release ID", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -319,12 +320,12 @@ describe("revokeRelease", () => {
   });
 });
 
-describe("addAccountMember", () => {
+describe("registry.addAccountMember", () => {
   it("Should emit AccountMemberAdded", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members.slice(0, 1));
+    const createAccountTx = await contract.createAccount("acme", "Qm", members.slice(0, 1));
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -333,10 +334,10 @@ describe("addAccountMember", () => {
   });
 
   it("Should fail with duplicate member", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -345,10 +346,10 @@ describe("addAccountMember", () => {
   });
 
   it("Should fail with no account member", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members.slice(1));
+    const createAccountTx = await contract.createAccount("acme", "Qm", members.slice(1));
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -357,10 +358,10 @@ describe("addAccountMember", () => {
   });
 
   it("Should fail with invalid account ID", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     await expect(contract.addAccountMember(0, members[1]))
@@ -368,12 +369,12 @@ describe("addAccountMember", () => {
   });
 });
 
-describe("removeAccountMember", () => {
+describe("registry.removeAccountMember", () => {
   it("Should emit AccountMemberRemoved", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -382,10 +383,10 @@ describe("removeAccountMember", () => {
   });
 
   it("Should fail with no account member", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members.slice(1));
+    const createAccountTx = await contract.createAccount("acme", "Qm", members.slice(1));
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -394,10 +395,10 @@ describe("removeAccountMember", () => {
   });
 
   it("Should fail with non existant member", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members.slice(0, 3));
+    const createAccountTx = await contract.createAccount("acme", "Qm", members.slice(0, 3));
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -406,10 +407,10 @@ describe("removeAccountMember", () => {
   });
 
   it("Should fail with invalid account ID", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     await expect(contract.removeAccountMember(0, members[1]))
@@ -417,12 +418,12 @@ describe("removeAccountMember", () => {
   });
 });
 
-describe("addProjectMember", () => {
+describe("registry.addProjectMember", () => {
   it("Should emit ProjectMemberAdded", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -435,10 +436,10 @@ describe("addProjectMember", () => {
   });
 
   it("Should fail with duplicate member", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -451,11 +452,11 @@ describe("addProjectMember", () => {
   });
 
   it("Should fail with no account member", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
     const signers = await ethers.getSigners();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members.slice(0, 1));
+    const createAccountTx = await contract.createAccount("acme", "Qm", members.slice(0, 1));
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -468,10 +469,10 @@ describe("addProjectMember", () => {
   });
 
   it("Should fail with invalid project ID", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -483,12 +484,12 @@ describe("addProjectMember", () => {
   });
 });
 
-describe("removeProjectMember", () => {
+describe("registry.removeProjectMember", () => {
   it("Should emit ProjectMemberRemoved", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -501,10 +502,10 @@ describe("removeProjectMember", () => {
   });
 
   it("Should fail with non existant member", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -517,11 +518,11 @@ describe("removeProjectMember", () => {
   });
 
   it("Should fail with no account member", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
     const signers = await ethers.getSigners();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members.slice(0, 1));
+    const createAccountTx = await contract.createAccount("acme", "Qm", members.slice(0, 1));
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -534,10 +535,10 @@ describe("removeProjectMember", () => {
   });
 
   it("Should fail with invalid project ID", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -549,12 +550,12 @@ describe("removeProjectMember", () => {
   });
 });
 
-describe("setAccountMetaURI", () => {
+describe("registry.setAccountMetaURI", () => {
   it("Should emit AccountUpdated", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -563,10 +564,10 @@ describe("setAccountMetaURI", () => {
   });
 
   it("Should fail with no account member", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members.slice(1));
+    const createAccountTx = await contract.createAccount("acme", "Qm", members.slice(1));
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -575,10 +576,10 @@ describe("setAccountMetaURI", () => {
   });
 
   it("Should fail with invalid account ID", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     await expect(contract.setAccountMetaURI(0, "baf"))
@@ -586,10 +587,10 @@ describe("setAccountMetaURI", () => {
   });
 
   it("Should fail with empty meta", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -598,12 +599,12 @@ describe("setAccountMetaURI", () => {
   });
 });
 
-describe("setProjectMetaURI", () => {
+describe("registry.setProjectMetaURI", () => {
   it("Should emit ProjectUpdated", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -616,11 +617,11 @@ describe("setProjectMetaURI", () => {
   });
 
   it("Should fail with no account member", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
     const signers = await ethers.getSigners();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members.slice(0, 1));
+    const createAccountTx = await contract.createAccount("acme", "Qm", members.slice(0, 1));
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -633,10 +634,10 @@ describe("setProjectMetaURI", () => {
   });
 
   it("Should fail with invalid project ID", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -648,10 +649,10 @@ describe("setProjectMetaURI", () => {
   });
 
   it("Should fail with empty meta", async function() {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
     const members = await getAddresses();
 
-    const createAccountTx = await contract.createAccount("acme", "Qm", members[0], members);
+    const createAccountTx = await contract.createAccount("acme", "Qm", members);
     await createAccountTx.wait();
 
     const accountID = await contract.generateID(31337, "acme");
@@ -664,9 +665,9 @@ describe("setProjectMetaURI", () => {
   });
 });
 
-describe("generateID", () => {
+describe("registry.generateID", () => {
   it("Should generate releaseID from projectID and releaseName", async function () {
-    const contract = await deployContract();
+    const contract = await deployRegistry();
 
     const accountID = await contract.generateID(31337, "acme");
     const projectID = await contract.generateID(accountID, "bin");
@@ -678,15 +679,4 @@ describe("generateID", () => {
   })
 });
 
-export async function deployContract() {
-  const factory = await ethers.getContractFactory("Registry");
-  const contract = await factory.deploy("0x0000000000000000000000000000000000000000");
-  
-  await contract.deployed();
-  return contract;
-}
 
-export async function getAddresses() {
-  const signers = await ethers.getSigners();
-  return signers.map((acct) => acct.address);
-}

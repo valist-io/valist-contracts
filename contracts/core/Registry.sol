@@ -23,7 +23,6 @@ contract Registry is BaseRelayRecipient {
     uint _accountID,
     string _name,
     string _metaURI,
-    address _beneficiary,
     address _sender
   );
 
@@ -45,13 +44,6 @@ contract Registry is BaseRelayRecipient {
   event AccountMemberRemoved(
     uint _accountID,
     address _member,
-    address _sender
-  );
-
-  /// @dev emitted when an account beneficiary is updated..
-  event BeneficiaryUpdated(
-    uint _accountID,
-    address _beneficiary,
     address _sender
   );
 
@@ -107,7 +99,6 @@ contract Registry is BaseRelayRecipient {
   );
 
   struct Account {
-    address payable beneficiary;
     EnumerableSet.AddressSet members;
   }
 
@@ -145,16 +136,14 @@ contract Registry is BaseRelayRecipient {
     _setTrustedForwarder(_forwarder);
   }
 
-  /// Creates an account with the given members and beneficiary.
+  /// Creates an account with the given members.
   ///
   /// @param _name Unique name used to identify the account.
   /// @param _metaURI URI of the account metadata.
-  /// @param _beneficiary Beneficiary address for recieving payments.
   /// @param _members List of members to add to the account.
   function createAccount(
     string memory _name,
     string memory _metaURI,
-    address payable _beneficiary,
     address[] memory _members
   )
     public
@@ -169,8 +158,7 @@ contract Registry is BaseRelayRecipient {
     require(bytes(metaByID[accountID]).length == 0, "err-name-claimed");
 
     metaByID[accountID] = _metaURI;
-    accountByID[accountID].beneficiary = _beneficiary;
-    emit AccountCreated(accountID, _name, _metaURI, _beneficiary, _msgSender());
+    emit AccountCreated(accountID, _name, _metaURI, _msgSender());
 
     for (uint i = 0; i < _members.length; ++i) {
       accountByID[accountID].members.add(_members[i]);
@@ -318,17 +306,6 @@ contract Registry is BaseRelayRecipient {
     emit ProjectMemberRemoved(_projectID, _address, _msgSender());   
   }
 
-  /// Set account beneficiary address for recieving payments.
-  ///
-  /// @param _accountID Unique ID of the account.
-  /// @param _beneficiary Address of beneficiary.
-  function setBeneficiary(uint _accountID, address payable _beneficiary) public {
-    require(isAccountMember(_accountID, _msgSender()), "err-not-member");
-    
-    accountByID[_accountID].beneficiary = _beneficiary;
-    emit BeneficiaryUpdated(_accountID, _beneficiary, _msgSender());
-  }
-
   /// Sets the account metadata URI. Requires the sender to be a member of the account.
   ///
   /// @param _accountID ID of the account.
@@ -408,13 +385,6 @@ contract Registry is BaseRelayRecipient {
   /// @param _releaseID ID of the release.
   function getReleaseSigners(uint _releaseID) public view returns (address[] memory) {
     return releaseByID[_releaseID].signers.values();
-  }
-
-  /// Returns account beneficiary address.
-  ///
-  /// @param _accountID Unique ID of the account.
-  function getBeneficiary(uint _accountID) public view returns (address payable) {
-    return accountByID[_accountID].beneficiary;
   }
 
   /// Returns the parent account ID for the project.
