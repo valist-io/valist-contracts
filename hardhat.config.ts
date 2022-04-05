@@ -27,6 +27,7 @@ module.exports = {
     },
     mumbai: {
       url: "https://rpc.valist.io/mumbai",
+      accounts: [process.env.PRIVATE_KEY || ''],
     }
   },
   gasReporter: {

@@ -108,8 +108,7 @@ contract License is ERC1155 {
     _token.safeTransferFrom(_msgSender(), address(this), price);
 
     // send royalty to owner
-    _token.safeIncreaseAllowance(address(this), royalty);
-    _token.safeTransferFrom(address(this), owner, royalty);
+    _token.safeTransfer(owner, royalty);
 
     _mint(_recipient, _projectID, 1, "");
     emit ProductPurchased(_projectID, address(_token), price, _recipient, _msgSender());

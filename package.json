@@ -5,7 +5,8 @@
     "test": "hardhat test",
     "deploy:ganache": "hardhat run scripts/deploy.ts --network ganache",
     "deploy:mumbai": "hardhat run scripts/deploy.ts --network mumbai",
-    "migrate": "hardhat run scripts/migrate.ts --network ganache"
+    "migrate:ganache": "hardhat run scripts/migrate.ts --network ganache",
+    "migrate:mumbai": "hardhat run scripts/migrate.ts --network mumbai"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.2",
