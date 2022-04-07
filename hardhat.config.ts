@@ -1,5 +1,6 @@
 import { task } from "hardhat/config";
 import "@nomiclabs/hardhat-waffle";
+import "@nomiclabs/hardhat-etherscan";
 import "hardhat-gas-reporter";
 import "hardhat-contract-sizer";
 
@@ -27,8 +28,11 @@ module.exports = {
     },
     mumbai: {
       url: "https://rpc.valist.io/mumbai",
-      accounts: [process.env.PRIVATE_KEY || ''],
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     }
+  },
+  etherscan: {
+    apiKey: process.env.ETHERSCAN_API_KEY,
   },
   gasReporter: {
     token: "MATIC",
