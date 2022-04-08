@@ -150,6 +150,10 @@ describe("registry.createRelease", () => {
     const projectID = await contract.generateID(accountID, "bin");
     await expect(contract.createRelease(projectID, "0.0.1", "Qm"))
       .to.emit(contract, 'ReleaseCreated');
+
+    const releaseID = await contract.generateID(projectID, "0.0.1");
+    const latestID = await contract.getLatestReleaseID(projectID);
+    expect(latestID).to.equal(releaseID);
   });
 
   it("Should publish with no project member", async function() {
