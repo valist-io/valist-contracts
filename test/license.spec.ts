@@ -117,9 +117,9 @@ describe('license.purchase(uint256,address)', () => {
     const setPriceTx = await setPrice(projectID, 1000);
     await setPriceTx.wait();
 
-    // set a royalty fee
-    const setRoyaltyTx = await license.setRoyalty(1000);
-    await setRoyaltyTx.wait();
+    // set a protocol fee
+    const setProtocolFeeTx = await license.setProtocolFee(1000);
+    await setProtocolFeeTx.wait();
 
     // purchase the license using native tokens
     await expect(purchase(projectID, members[0], { value: 1000 }))
@@ -128,6 +128,10 @@ describe('license.purchase(uint256,address)', () => {
     // ensure product balance is correct
     const balance = await getBalance(projectID);
     expect(balance).to.equal(900);
+
+    // ensure supply is correct
+    const supply = await license.getSupply(projectID);
+    expect(supply).to.equal(1);
 
     // ensure token balance is correct
     const balanceOf = await license.balanceOf(members[0], projectID);
@@ -150,7 +154,36 @@ describe('license.purchase(uint256,address)', () => {
     const purchase = license['purchase(uint256,address)'];
 
     await expect(purchase(projectID, members[0], { value: 1000 }))
-      .to.be.revertedWith('err-not-allowed');
+      .to.be.revertedWith('err-price');
+  });
+
+  it("Should revert when limit is reached", async function() {
+    const registry = await utils.deployRegistry();
+    const license = await utils.deployLicense(registry.address);
+    const members = await utils.getAddresses();
+
+    const createAccountTx = await registry.createAccount("acme", "Qm", members);
+    await createAccountTx.wait();
+
+    const accountID = await registry.generateID(31337, "acme");
+    const createProjectTx = await registry.createProject(accountID, "bin", "Qm", []);
+    await createProjectTx.wait();
+
+    const projectID = await registry.generateID(accountID, "bin");
+    const setPrice = license['setPrice(uint256,uint256)'];
+    const purchase = license['purchase(uint256,address)'];
+
+    const setLimitTx = await license.setLimit(projectID, 1);
+    await setLimitTx.wait();
+
+    const setPriceTx = await setPrice(projectID, 1000);
+    await setPriceTx.wait();
+
+    const purchaseTx = await purchase(projectID, members[0], { value: 1000 });
+    await purchaseTx.wait();
+
+    await expect(purchase(projectID, members[0], { value: 1000 }))
+      .to.be.revertedWith('err-limit');
   });
 });
 
@@ -185,9 +218,9 @@ describe('license.purchase(address,uint256,address)', () => {
     const approveTokensTx = await erc20.approve(license.address, 1000);
     await approveTokensTx.wait();
 
-    // set a royalty fee
-    const setRoyaltyTx = await license.setRoyalty(1000);
-    await setRoyaltyTx.wait();
+    // set a protocol fee
+    const setProtocolFeeTx = await license.setProtocolFee(1000);
+    await setProtocolFeeTx.wait();
 
     // purchase the license using erc20 tokens
     await expect(purchase(erc20.address, projectID, members[0]))
@@ -197,11 +230,15 @@ describe('license.purchase(address,uint256,address)', () => {
     const balance = await getBalance(erc20.address, projectID);
     expect(balance).to.equal(900);
 
+    // ensure supply is correct
+    const supply = await license.getSupply(projectID);
+    expect(supply).to.equal(1);
+
     // ensure token balance is correct
     const balanceOf = await license.balanceOf(members[0], projectID);
     expect(balanceOf).to.equal(1);
 
-    // make sure owner gets royalty
+    // make sure owner gets protocol fee
     const ownerBalance = await erc20.balanceOf(members[0]);
     expect(ownerBalance).to.equal(100);
   });
@@ -223,7 +260,45 @@ describe('license.purchase(address,uint256,address)', () => {
     const purchase = license['purchase(address,uint256,address)'];
 
     await expect(purchase(erc20.address, projectID, members[0]))
-      .to.be.revertedWith('err-not-allowed');
+      .to.be.revertedWith('err-price');
+  });
+
+  it("Should revert when limit is reached", async function() {
+    const erc20 = await utils.deployTestERC20();
+    const registry = await utils.deployRegistry();
+    const license = await utils.deployLicense(registry.address);
+    const members = await utils.getAddresses();
+
+    const createAccountTx = await registry.createAccount("acme", "Qm", members);
+    await createAccountTx.wait();
+
+    const accountID = await registry.generateID(31337, "acme");
+    const createProjectTx = await registry.createProject(accountID, "bin", "Qm", []);
+    await createProjectTx.wait();
+
+    const projectID = await registry.generateID(accountID, "bin");
+    const setPrice = license['setPrice(address,uint256,uint256)'];
+    const purchase = license['purchase(address,uint256,address)'];
+
+    // mint some erc20 tokens so we can spend them
+    const mintTokensTx = await erc20.mint(members[0], 2000);
+    await mintTokensTx.wait();
+
+    // approve the license contract to transfer tokens
+    const approveTokensTx = await erc20.approve(license.address, 2000);
+    await approveTokensTx.wait();
+
+    const setLimitTx = await license.setLimit(projectID, 1);
+    await setLimitTx.wait();
+
+    const setPriceTx = await setPrice(erc20.address, projectID, 1000);
+    await setPriceTx.wait();
+
+    const purchaseTx = await purchase(erc20.address, projectID, members[0]);
+    await purchaseTx.wait();
+
+    await expect(purchase(erc20.address, projectID, members[0]))
+      .to.be.revertedWith('err-limit');
   });
 });
 
