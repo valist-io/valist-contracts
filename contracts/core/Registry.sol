@@ -115,6 +115,8 @@ contract Registry is BaseRelayRecipient {
   struct Release {
     /// @dev ID of the parent project.
     uint projectID;
+    /// @dev ID of the previous release.
+    uint releaseID;
     /// @dev set of signer addresses.
     EnumerableSet.AddressSet signers;
   }
@@ -232,9 +234,12 @@ contract Registry is BaseRelayRecipient {
       "err-not-member"
     );
 
-    metaByID[releaseID] = _metaURI;
-    releaseByID[releaseID].projectID = _projectID;
+    uint previousID = projectByID[_projectID].releaseID;
     projectByID[_projectID].releaseID = releaseID;
+
+    metaByID[releaseID] = _metaURI;
+    releaseByID[releaseID].releaseID = previousID;
+    releaseByID[releaseID].projectID = _projectID;
     emit ReleaseCreated(_projectID, releaseID, _name, _metaURI, _msgSender());
   }
 
@@ -414,6 +419,13 @@ contract Registry is BaseRelayRecipient {
   /// @param _projectID ID of the project.
   function getLatestReleaseID(uint _projectID) public view returns (uint) {
     return projectByID[_projectID].releaseID;
+  }
+
+  /// Returns the previous release ID for the release.
+  ///
+  /// @param _releaseID ID of the release.
+  function getPreviousReleaseID(uint _releaseID) public view returns (uint) {
+    return releaseByID[_releaseID].releaseID;
   }
 
   /// Sets the owner address. Owner only.
