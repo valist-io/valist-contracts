@@ -425,3 +425,128 @@ describe('license.withdraw(address,uint256,address)', () => {
       .to.be.revertedWith('err-not-member');
   });
 });
+
+describe('license.setLimit', () => {
+  it("Should emit LimitChanged", async function() {
+    const registry = await utils.deployRegistry();
+    const license = await utils.deployLicense(registry.address);
+    const members = await utils.getAddresses();
+
+    const createAccountTx = await registry.createAccount("acme", "Qm", members.slice(0, 1));
+    await createAccountTx.wait();
+
+    const accountID = await registry.generateID(31337, "acme");
+    const createProjectTx = await registry.createProject(accountID, "bin", "Qm", []);
+    await createProjectTx.wait();
+
+    const projectID = await registry.generateID(accountID, "bin");
+    await expect(license.setLimit(projectID, 10))
+      .to.emit(license, 'LimitChanged');
+  });
+
+  it ("Should revert when not account member", async function() {
+    const registry = await utils.deployRegistry();
+    const license = await utils.deployLicense(registry.address);
+    const members = await utils.getAddresses();
+    const signers = await ethers.getSigners();
+
+    const createAccountTx = await registry.createAccount("acme", "Qm", members.slice(0, 1));
+    await createAccountTx.wait();
+
+    const accountID = await registry.generateID(31337, "acme");
+    const createProjectTx = await registry.createProject(accountID, "bin", "Qm", []);
+    await createProjectTx.wait();
+
+    const projectID = await registry.generateID(accountID, "bin");
+    await expect(license.connect(signers[1]).setLimit(projectID, 10))
+      .to.be.revertedWith('err-not-member');
+  });
+
+  it ("Should revert when supply is greater than limit", async function() {
+    const registry = await utils.deployRegistry();
+    const license = await utils.deployLicense(registry.address);
+    const members = await utils.getAddresses();
+    const signers = await ethers.getSigners();
+
+    const createAccountTx = await registry.createAccount("acme", "Qm", members.slice(0, 1));
+    await createAccountTx.wait();
+
+    const accountID = await registry.generateID(31337, "acme");
+    const createProjectTx = await registry.createProject(accountID, "bin", "Qm", []);
+    await createProjectTx.wait();
+
+    const projectID = await registry.generateID(accountID, "bin");
+    const setPrice = license['setPrice(uint256,uint256)'];
+    const purchase = license['purchase(uint256,address)'];
+
+    const setPriceTx = await setPrice(projectID, 1000);
+    await setPriceTx.wait();
+
+    // purchase some licenses
+    for (let i = 0; i < 5; i++) {
+      const purchaseTx = await purchase(projectID, members[0], { value: 1000 });
+      await purchaseTx.wait();
+    }
+
+    await expect(license.setLimit(projectID, 1))
+      .to.be.revertedWith('err-limit');
+  });
+});
+
+describe('license.setRoyalty', () => {
+  it("Should emit RoyaltyChanged", async function() {
+    const registry = await utils.deployRegistry();
+    const license = await utils.deployLicense(registry.address);
+    const members = await utils.getAddresses();
+
+    const createAccountTx = await registry.createAccount("acme", "Qm", members.slice(0, 1));
+    await createAccountTx.wait();
+
+    const accountID = await registry.generateID(31337, "acme");
+    const createProjectTx = await registry.createProject(accountID, "bin", "Qm", []);
+    await createProjectTx.wait();
+
+    const projectID = await registry.generateID(accountID, "bin");
+    await expect(license.setRoyalty(projectID, members[0], 250))
+      .to.emit(license, 'RoyaltyChanged');
+
+    const [recipient, amount] = await license.royaltyInfo(projectID, 10000);
+    expect(recipient).to.equal(members[0]);
+    expect(amount).to.equal(250);
+  });
+
+  it ("Should revert when not account member", async function() {
+    const registry = await utils.deployRegistry();
+    const license = await utils.deployLicense(registry.address);
+    const members = await utils.getAddresses();
+    const signers = await ethers.getSigners();
+
+    const createAccountTx = await registry.createAccount("acme", "Qm", members.slice(0, 1));
+    await createAccountTx.wait();
+
+    const accountID = await registry.generateID(31337, "acme");
+    const createProjectTx = await registry.createProject(accountID, "bin", "Qm", []);
+    await createProjectTx.wait();
+
+    const projectID = await registry.generateID(accountID, "bin");
+    await expect(license.connect(signers[1]).setRoyalty(projectID, members[0], 250))
+      .to.be.revertedWith('err-not-member');
+  });
+
+  it("Should revert when amount is too high", async function() {
+    const registry = await utils.deployRegistry();
+    const license = await utils.deployLicense(registry.address);
+    const members = await utils.getAddresses();
+
+    const createAccountTx = await registry.createAccount("acme", "Qm", members.slice(0, 1));
+    await createAccountTx.wait();
+
+    const accountID = await registry.generateID(31337, "acme");
+    const createProjectTx = await registry.createProject(accountID, "bin", "Qm", []);
+    await createProjectTx.wait();
+
+    const projectID = await registry.generateID(accountID, "bin");
+    await expect(license.setRoyalty(projectID, members[0], 10001))
+      .to.be.revertedWith('err-bps');
+  });
+});

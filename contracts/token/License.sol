@@ -5,9 +5,10 @@ import "../core/Registry.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 
 /// @title Valist License contract
-contract License is ERC1155 {
+contract License is ERC1155, IERC2981 {
   using SafeERC20 for IERC20;
 
   /// @dev emitted when mint price is changed.
@@ -22,6 +23,14 @@ contract License is ERC1155 {
   event LimitChanged(
     uint _projectID,
     uint _limit,
+    address _sender
+  );
+
+  /// @dev emitted when royalty is changed.
+  event RoyaltyChanged(
+    uint _projectID,
+    address _recipient,
+    uint _amount,
     address _sender
   );
 
@@ -48,23 +57,37 @@ contract License is ERC1155 {
     uint limit;
     /// @dev total supply
     uint supply;
-    /// @dev native token price in wei
+    /// @dev price in wei
     uint price;
-    /// @dev native token balance in wei
+    /// @dev balance in wei
     uint balance;
-    /// @dev mapping of ERC20 to price
-    mapping(IERC20 => uint) priceERC20;
-    /// @dev mapping of ERC20 to balance
-    mapping(IERC20 => uint) balanceERC20;
+    /// @dev mapping of address to token info
+    mapping(IERC20 => Token) tokens;
+  }
+
+  struct Token {
+    /// @dev token price
+    uint price;
+    /// @dev token balance
+    uint balance;
+  }
+
+  struct Royalty {
+    /// @dev recipient address
+    address recipient;
+    /// @dev amount in basis points
+    uint amount;
   }
 
   /// @dev mapping of project ID to product info
   mapping(uint => Product) private productByID;
+  /// @dev mapping of project ID to royalty info
+  mapping(uint => Royalty) private royaltyByID;
 
   /// @dev token symbol
   string public symbol = "LICENSE";
   /// @dev token display name
-  string public name = "Valist Software License";
+  string public name = "Valist Product License";
   /// @dev address of contract owner
   address payable public owner;
   /// @dev protocol fee in basis points
@@ -111,7 +134,7 @@ contract License is ERC1155 {
   /// @param _projectID ID of the project.
   /// @param _recipient Address of the recipient.
   function purchase(IERC20 _token, uint _projectID, address _recipient) public {
-    uint price = productByID[_projectID].priceERC20[_token];
+    uint price = productByID[_projectID].tokens[_token].price;
     uint allowance = _token.allowance(_msgSender(), address(this));
     require(price > 0 && allowance >= price, "err-price");
 
@@ -122,7 +145,7 @@ contract License is ERC1155 {
     uint fee = price * protocolFee / 10000;
 
     // increase product balance and supply
-    productByID[_projectID].balanceERC20[_token] += price - fee;
+    productByID[_projectID].tokens[_token].balance += price - fee;
     productByID[_projectID].supply += 1;
 
     // transfer tokens and send protocol fee to owner
@@ -154,7 +177,7 @@ contract License is ERC1155 {
     uint accountID = registry.getProjectAccountID(_projectID);
     require(registry.isAccountMember(accountID, _msgSender()), "err-not-member");
 
-    productByID[_projectID].priceERC20[_token] = _price;
+    productByID[_projectID].tokens[_token].price = _price;
     emit PriceChanged(_projectID, address(_token), _price, _msgSender());
   }
 
@@ -184,10 +207,10 @@ contract License is ERC1155 {
     uint accountID = registry.getProjectAccountID(_projectID);    
     require(registry.isAccountMember(accountID, _msgSender()), "err-not-member");
 
-    uint balance = productByID[_projectID].balanceERC20[_token];
+    uint balance = productByID[_projectID].tokens[_token].balance;
     require(balance > 0, "err-balance");
 
-    productByID[_projectID].balanceERC20[_token] = 0;
+    productByID[_projectID].tokens[_token].balance = 0;
     _token.safeTransfer(_recipient, balance);
 
     emit BalanceWithdrawn(_projectID, address(_token), balance, _recipient, _msgSender());
@@ -208,11 +231,42 @@ contract License is ERC1155 {
     emit LimitChanged(_projectID, _limit, _msgSender());
   }
 
+  /// Set a royalty on product resales.
+  ///
+  /// @param _projectID ID of the project.
+  /// @param _recipient Address of the recipient.
+  /// @param _amount Royalty amount in basis points.
+  function setRoyalty(uint _projectID, address _recipient, uint _amount) public {
+    require(_amount < 10000, "err-bps");
+
+    uint accountID = registry.getProjectAccountID(_projectID);
+    require(registry.isAccountMember(accountID, _msgSender()), "err-not-member");
+
+    royaltyByID[_projectID].recipient = _recipient;
+    royaltyByID[_projectID].amount = _amount;
+    emit RoyaltyChanged(_projectID, _recipient, _amount, _msgSender());
+  }
+
   /// Returns the URI of the token
   ///
   /// @param _projectID ID of the project.
   function uri(uint _projectID) public view virtual override returns (string memory) {
     return registry.metaByID(_projectID);
+  }
+
+  /// @dev See {IERC165-supportsInterface}
+  function supportsInterface(bytes4 interfaceId) public view virtual override(IERC165, ERC1155) returns (bool) {
+    return interfaceId == type(IERC2981).interfaceId || super.supportsInterface(interfaceId);
+  }
+
+  /// Returns the royalty recipient address and amount owed.
+  ///
+  /// @param _projectID ID of the project.
+  /// @param _price Sale price of license.
+  function royaltyInfo(uint _projectID, uint _price) public view virtual override returns (address, uint256) {
+    Royalty memory royalty = royaltyByID[_projectID];
+    uint amount = _price * royalty.amount / 10000;
+    return (royalty.recipient, amount);
   }
 
   /// Returns the balance of the product in wei.
@@ -227,7 +281,7 @@ contract License is ERC1155 {
   /// @param _token ERC20 token address.
   /// @param _projectID ID of the project.
   function getBalance(IERC20 _token, uint _projectID) public view returns(uint) {
-    return productByID[_projectID].balanceERC20[_token];
+    return productByID[_projectID].tokens[_token].balance;
   }
 
   /// Returns the mint price of the product in wei.
@@ -242,7 +296,7 @@ contract License is ERC1155 {
   /// @param _token ERC20 token address.
   /// @param _projectID ID of the project.
   function getPrice(IERC20 _token, uint _projectID) public view returns(uint) {
-    return productByID[_projectID].priceERC20[_token];
+    return productByID[_projectID].tokens[_token].price;
   }
 
   /// Returns the supply limit of a product.
@@ -277,7 +331,7 @@ contract License is ERC1155 {
   ///
   /// @param _protocolFee Protocol fee in basis points.
   function setProtocolFee(uint _protocolFee) public onlyOwner {
-    require(_protocolFee < 10000);
+    require(_protocolFee < 10000, "err-bps");
     protocolFee = _protocolFee;
   }
 
