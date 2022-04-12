@@ -61,6 +61,10 @@ contract License is ERC1155, IERC2981 {
     uint price;
     /// @dev balance in wei
     uint balance;
+    /// @dev royalty recipient address
+    address royaltyRecipient;
+    /// @dev royalty amount in basis points
+    uint royaltyAmount;
     /// @dev mapping of address to token info
     mapping(IERC20 => Token) tokens;
   }
@@ -72,17 +76,8 @@ contract License is ERC1155, IERC2981 {
     uint balance;
   }
 
-  struct Royalty {
-    /// @dev recipient address
-    address recipient;
-    /// @dev amount in basis points
-    uint amount;
-  }
-
   /// @dev mapping of project ID to product info
   mapping(uint => Product) private productByID;
-  /// @dev mapping of project ID to royalty info
-  mapping(uint => Royalty) private royaltyByID;
 
   /// @dev token symbol
   string public symbol = "LICENSE";
@@ -242,8 +237,8 @@ contract License is ERC1155, IERC2981 {
     uint accountID = registry.getProjectAccountID(_projectID);
     require(registry.isAccountMember(accountID, _msgSender()), "err-not-member");
 
-    royaltyByID[_projectID].recipient = _recipient;
-    royaltyByID[_projectID].amount = _amount;
+    productByID[_projectID].royaltyRecipient = _recipient;
+    productByID[_projectID].royaltyAmount = _amount;
     emit RoyaltyChanged(_projectID, _recipient, _amount, _msgSender());
   }
 
@@ -264,9 +259,9 @@ contract License is ERC1155, IERC2981 {
   /// @param _projectID ID of the project.
   /// @param _price Sale price of license.
   function royaltyInfo(uint _projectID, uint _price) public view virtual override returns (address, uint256) {
-    Royalty memory royalty = royaltyByID[_projectID];
-    uint amount = _price * royalty.amount / 10000;
-    return (royalty.recipient, amount);
+    address recipient = productByID[_projectID].royaltyRecipient;
+    uint amount = productByID[_projectID].royaltyAmount;
+    return (recipient, _price * amount / 10000);
   }
 
   /// Returns the balance of the product in wei.
