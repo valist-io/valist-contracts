@@ -1,6 +1,17 @@
 // SPDX-License-Identifier: MPL-2.0
 pragma solidity >=0.8.4;
 
+/// @@@  @@@   @@@@@@   @@@       @@@   @@@@@@   @@@@@@@
+/// @@@  @@@  @@@@@@@@  @@@       @@@  @@@@@@@   @@@@@@@
+/// @@!  @@@  @@!  @@@  @@!       @@!  !@@         @@!
+/// !@!  @!@  !@!  @!@  !@!       !@!  !@!         !@!
+/// @!@  !@!  @!@!@!@!  @!!       !!@  !!@@!!      @!!
+/// !@!  !!!  !!!@!!!!  !!!       !!!   !!@!!!     !!!
+/// :!:  !!:  !!:  !!!  !!:       !!:       !:!    !!:
+///  ::!!:!   :!:  !:!   :!:      :!:      !:!     :!:
+///   ::::    ::   :::   :: ::::   ::  :::: ::      ::
+///    :       :   : :  : :: : :  :    :: : :       :
+
 import "@opengsn/contracts/src/BaseRelayRecipient.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -151,9 +162,9 @@ contract Registry is BaseRelayRecipient {
   /// @param _metaURI URI of the account metadata.
   /// @param _members List of members to add to the account.
   function createAccount(
-    string memory _name,
-    string memory _metaURI,
-    address[] memory _members
+    string calldata _name,
+    string calldata _metaURI,
+    address[] calldata _members
   )
     public
     payable
@@ -185,9 +196,9 @@ contract Registry is BaseRelayRecipient {
   /// @param _members Optional list of members to add to the project.
   function createProject(
     uint _accountID,
-    string memory _name,
-    string memory _metaURI,
-    address[] memory _members
+    string calldata _name,
+    string calldata _metaURI,
+    address[] calldata _members
   )
     public
   {
@@ -215,8 +226,8 @@ contract Registry is BaseRelayRecipient {
   /// @param _metaURI URI of the project metadata.
   function createRelease(
     uint _projectID,
-    string memory _name,
-    string memory _metaURI
+    string calldata _name,
+    string calldata _metaURI
   )
     public
   {
@@ -323,7 +334,7 @@ contract Registry is BaseRelayRecipient {
   ///
   /// @param _accountID ID of the account.
   /// @param _metaURI Metadata URI.
-  function setAccountMetaURI(uint _accountID, string memory _metaURI) public {
+  function setAccountMetaURI(uint _accountID, string calldata _metaURI) public {
     require(bytes(_metaURI).length > 0, "err-empty-meta");
     require(isAccountMember(_accountID, _msgSender()), "err-not-member");
     require(bytes(metaByID[_accountID]).length > 0, "err-not-exist");
@@ -336,7 +347,7 @@ contract Registry is BaseRelayRecipient {
   ///
   /// @param _projectID ID of the project.
   /// @param _metaURI Metadata URI.
-  function setProjectMetaURI(uint _projectID, string memory _metaURI) public {
+  function setProjectMetaURI(uint _projectID, string calldata _metaURI) public {
     require(bytes(_metaURI).length > 0, "err-empty-meta");
     require(bytes(metaByID[_projectID]).length > 0, "err-not-exist");
 
@@ -351,7 +362,7 @@ contract Registry is BaseRelayRecipient {
   ///
   /// @param _parentID ID of the parent account or project. Use `block.chainid` for accounts.
   /// @param _name Name of the account, project, or release.
-  function generateID(uint _parentID, string memory _name) public pure returns (uint) {
+  function generateID(uint _parentID, string calldata _name) public pure returns (uint) {
     return uint(keccak256(abi.encodePacked(_parentID, keccak256(bytes(_name)))));
   }
 

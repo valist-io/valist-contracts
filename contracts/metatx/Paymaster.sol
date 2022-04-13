@@ -9,45 +9,69 @@ contract Paymaster is BasePaymaster {
 	/// @dev allowed contract addresses
 	mapping(address => bool) public allowed;
 
+	/// @dev emitted after a relayed transaction.
+	event Relayed(
+		uint _gasUsed,
+		uint _gasPrice,
+		uint _pctRelayFee,
+		uint _baseRelayFee
+	);
+
+	/// See {IPaymaster-preRelayedCall}
 	function preRelayedCall(
 		GsnTypes.RelayRequest calldata relayRequest,
 		bytes calldata signature,
 		bytes calldata approvalData,
 		uint256 maxPossibleGas
 	)
-		external 
-		override 
+		external
+		override
 		virtual
-		returns (bytes memory context, bool) 
+		relayHubOnly
+		returns (bytes memory context, bool revertOnRecipientRevert)
 	{
-		_verifyForwarder(relayRequest);
 		(signature, approvalData, maxPossibleGas);
-		
+		_verifyForwarder(relayRequest);
 		require(allowed[relayRequest.request.to]);
-    return (abi.encode(block.timestamp), false);
+    return ("", false);
 	}
 
+	/// See {IPaymaster-postRelayedCall}
 	function postRelayedCall(
 		bytes calldata context,
 		bool success,
 		uint256 gasUseWithoutPost,
 		GsnTypes.RelayData calldata relayData
-	) 
-		external 
-		override 
-		virtual 
+	)
+		external
+		override
+		virtual
+		relayHubOnly
 	{
-    (context, success, gasUseWithoutPost, relayData);
+    (context, success);
+    emit Relayed(
+			gasUseWithoutPost,
+			relayData.gasPrice,
+			relayData.pctRelayFee,
+			relayData.baseRelayFee
+    );
 	}
 
+	/// Add an address to the list of allowed contracts.
+	///
+	/// @param _target Address of the contract.
 	function allowAddress(address _target) external onlyOwner {
 		allowed[_target] = true;
 	}
 
+	/// Remove an address from the list of allowed contracts.
+	///
+	/// @param _target Address of the contract.
 	function revokeAddress(address _target) external onlyOwner {
 		allowed[_target] = false;
 	}
 
+	/// @dev see {IPaymaster-versionPaymaster}
   function versionPaymaster() external virtual view override returns (string memory) {
     return "2.2.3";
   }
