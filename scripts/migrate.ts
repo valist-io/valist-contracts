@@ -40,7 +40,7 @@ export function getRegistryAddress(chainId: number): string {
     case 137: // Polygon mainnet
       return '0xc70A069eC7F887a7497a4bdC7bE666C1e18c8DC3';
     case 80001: // Mumbai testnet
-      return '0xC2E442A911A70097093E5d51A9224A1587D888cb';
+      return '0x83B5f729DB18E2Cae6388A414210543581f9df17';
     default: // test network or other
       return '0xe78A0F7E598Cc8b0Bb87894B0F60dD2a88d6a8Ab';
   }
