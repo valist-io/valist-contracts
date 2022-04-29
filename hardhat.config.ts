@@ -29,6 +29,10 @@ module.exports = {
     mumbai: {
       url: "https://rpc.valist.io/mumbai",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+    },
+    polygon: {
+      url: "https://rpc.valist.io/polygon",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     }
   },
   etherscan: {
