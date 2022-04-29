@@ -4,7 +4,6 @@ async function main() {
   const { chainId } = await ethers.provider.getNetwork();
   const forwarderAddress = getForwarderAddress(chainId);
   const relayHubAddress = getRelayHubAddress(chainId);
-
   console.log("Deploying to:", chainId);
 
   const Registry = await ethers.getContractFactory("Registry");
@@ -13,12 +12,15 @@ async function main() {
 
   const registry = await Registry.deploy(forwarderAddress);
   await registry.deployed();
+  console.log("Registry deployed to:", registry.address);
 
   const license = await License.deploy(registry.address);
   await license.deployed();
+  console.log("License deployed to:", license.address);
 
   const paymaster = await Paymaster.deploy();
   await paymaster.deployed();
+  console.log("Paymaster deployed to:", paymaster.address);
 
   const setRelayHubTx = await paymaster.setRelayHub(relayHubAddress);
   await setRelayHubTx.wait();
@@ -29,9 +31,17 @@ async function main() {
   const allowAddressTx = await paymaster.allowAddress(registry.address);
   await allowAddressTx.wait();
 
-  console.log("Registry deployed to:", registry.address);
-  console.log("License deployed to:", license.address);
-  console.log("Paymaster deployed to:", paymaster.address);
+  const valistEthAddress = "0x393b9443545e0b428b008b25e1cf1c96d5b8fe06";
+  console.log("Transferring ownership to:", valistEthAddress);
+
+  const setPaymasterOwnerTx = await paymaster.transferOwnership(valistEthAddress);
+  await setPaymasterOwnerTx.wait();
+
+  const setLicenseOwnerTx = await license.setOwner(valistEthAddress);
+  await setLicenseOwnerTx.wait();
+
+  const setRegistryOwnerTx = await registry.setOwner(valistEthAddress);
+  await setRegistryOwnerTx.wait();
 }
 
 function getRelayHubAddress(chainId: number): string {
