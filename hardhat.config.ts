@@ -1,8 +1,8 @@
 import { task } from "hardhat/config";
 import "@nomiclabs/hardhat-waffle";
+import "@nomiclabs/hardhat-etherscan";
 import "hardhat-gas-reporter";
 import "hardhat-contract-sizer";
-import "hardhat-abi-exporter";
 
 task("accounts", "Prints the list of accounts", async (args, hre) => {
   const accounts = await hre.ethers.getSigners();
@@ -28,7 +28,15 @@ module.exports = {
     },
     mumbai: {
       url: "https://rpc.valist.io/mumbai",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+    },
+    polygon: {
+      url: "https://rpc.valist.io/polygon",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     }
+  },
+  etherscan: {
+    apiKey: process.env.ETHERSCAN_API_KEY,
   },
   gasReporter: {
     token: "MATIC",
@@ -40,10 +48,5 @@ module.exports = {
     alphaSort: true,
     runOnCompile: true,
     disambiguatePaths: false,
-  },
-  abiExporter: { 
-    path: './abis',
-    clear: true,
-    flat: true,
-  },
+  }
 };
