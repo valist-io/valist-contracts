@@ -12,6 +12,25 @@ task("accounts", "Prints the list of accounts", async (args, hre) => {
   }
 });
 
+
+let accounts: any;
+
+// import from private key
+if (process.env.PRIVATE_KEY) {
+  accounts = [process.env.PRIVATE_KEY];
+}
+
+// import from mnemonic
+if (process.env.MNEMONIC) {
+  accounts = {
+    mnemonic: process.env.MNEMONIC,
+    path: process.env.MNEMONIC_PATH ?? "m/44'/60'/0'/0",
+    initialIndex: 0,
+    count: 1,
+    passphrase: "",
+  };
+}
+
 module.exports = {
   solidity: {
     version: "0.8.4",
@@ -28,11 +47,11 @@ module.exports = {
     },
     mumbai: {
       url: "https://rpc.valist.io/mumbai",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      accounts,
     },
     polygon: {
       url: "https://rpc.valist.io/polygon",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      accounts,
     }
   },
   etherscan: {

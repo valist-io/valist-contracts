@@ -1,4 +1,5 @@
 import { ethers } from 'hardhat';
+import { getForwarderAddress, getRelayHubAddress } from './common';
 
 async function main() {
   const { chainId } = await ethers.provider.getNetwork();
@@ -42,28 +43,6 @@ async function main() {
 
   const setRegistryOwnerTx = await registry.setOwner(valistEthAddress);
   await setRegistryOwnerTx.wait();
-}
-
-function getRelayHubAddress(chainId: number): string {
-  switch(chainId) {
-    case 137: // polygon mainnet
-      return '0x6C28AfC105e65782D9Ea6F2cA68df84C9e7d750d';
-    case 80001: // polygon mumbai
-      return '0x6646cD15d33cE3a6933e36de38990121e8ba2806';
-    default: // testnet or unknown
-      return '0x0000000000000000000000000000000000000000';
-  }
-}
-
-function getForwarderAddress(chainId: number): string {
-  switch(chainId) {
-    case 137: // polygon mainnet
-      return '0xdA78a11FD57aF7be2eDD804840eA7f4c2A38801d';
-    case 80001: // polygon mumbai
-      return '0x4d4581c01A457925410cd3877d17b2fd4553b2C5';
-    default: // testnet or unknown
-      return '0x0000000000000000000000000000000000000000';
-  }
 }
 
 main()

@@ -9,7 +9,9 @@
     "deploy:polygon": "hardhat run scripts/deploy.ts --network polygon",
     "migrate:ganache": "hardhat run scripts/migrate.ts --network ganache",
     "migrate:mumbai": "hardhat run scripts/migrate.ts --network mumbai",
-    "migrate:polygon": "hardhat run scripts/migrate.ts --network polygon"
+    "migrate:polygon": "hardhat run scripts/migrate.ts --network polygon",
+    "setTrustedForwarder:mumbai": "hardhat run scripts/setTrustedForwarder.ts --network mumbai",
+    "setTrustedForwarder:polygon": "hardhat run scripts/setTrustedForwarder.ts --network polygon"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.2",

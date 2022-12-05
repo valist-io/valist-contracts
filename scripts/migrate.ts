@@ -1,6 +1,5 @@
 import { ethers } from 'hardhat';
-import * as mumbai from '../snapshots/mumbai.json';
-import * as polygon from '../snapshots/polygon.json';
+import { getRegistryAddress, getSnapshot } from './common';
 
 async function main() {
   const { chainId } = await ethers.provider.getNetwork();
@@ -50,25 +49,7 @@ async function main() {
   }
 }
 
-export function getSnapshot(chainId: number) {
-  switch (chainId) {
-    case 137: // Polygon mainnet
-      return polygon;
-    default: // test network or other
-      return mumbai;
-  }
-}
 
-export function getRegistryAddress(chainId: number): string {
-  switch(chainId) {
-    case 137: // Polygon mainnet
-      return '0xD504d012D78B81fA27288628f3fC89B0e2f56e24';
-    case 80001: // Mumbai testnet
-      return '0xD504d012D78B81fA27288628f3fC89B0e2f56e24';
-    default: // test network or other
-      return '0xe78A0F7E598Cc8b0Bb87894B0F60dD2a88d6a8Ab';
-  }
-}
 
 main()
   // eslint-disable-next-line no-process-exit
