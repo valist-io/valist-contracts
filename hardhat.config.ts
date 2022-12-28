@@ -3,6 +3,9 @@ import "@nomiclabs/hardhat-waffle";
 import "@nomiclabs/hardhat-etherscan";
 import "hardhat-gas-reporter";
 import "hardhat-contract-sizer";
+import { config as dotEnvConfig } from "dotenv";
+
+dotEnvConfig();
 
 task("accounts", "Prints the list of accounts", async (args, hre) => {
   const accounts = await hre.ethers.getSigners();

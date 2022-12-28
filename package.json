@@ -7,6 +7,8 @@
     "deploy:ganache": "hardhat run scripts/deploy.ts --network ganache",
     "deploy:mumbai": "hardhat run scripts/deploy.ts --network mumbai",
     "deploy:polygon": "hardhat run scripts/deploy.ts --network polygon",
+    "forwarder:mumbai": "hardhat run scripts/forwarder.ts --network mumbai",
+    "forwarder:polygon": "hardhat run scripts/forwarder.ts --network polygon",
     "migrate:ganache": "hardhat run scripts/migrate.ts --network ganache",
     "migrate:mumbai": "hardhat run scripts/migrate.ts --network mumbai",
     "migrate:polygon": "hardhat run scripts/migrate.ts --network polygon"
